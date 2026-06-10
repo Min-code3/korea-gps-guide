@@ -17,7 +17,7 @@ export default async function AreaPage({
   const [attractions, tagRows, sectorRows] = await Promise.all([
     getAttractionsByArea(decodedArea, lang as 'ko' | 'en'),
     getTagRows(),
-    getSectorRows(),
+    getSectorRows().catch(() => []),
   ]);
   if (attractions.length === 0) return notFound();
 
