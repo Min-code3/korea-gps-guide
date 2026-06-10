@@ -1,3 +1,15 @@
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 const BASE = process.env.TOUR_API_KR_BASE!;
 const ENG_BASE = process.env.TOUR_API_ENG_BASE!;
 const KEY = process.env.TOUR_API_KEY!;
@@ -53,10 +65,10 @@ export async function getAttractionFromAPI(contentId: string, contentTypeId = '1
 
   return {
     name: c.title,
-    description: c.overview,
+    description: stripHtml(c.overview ?? ''),
     center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
-    hours: i.usetime ?? '',
-    admission: admissionItem?.infotext ?? '',
+    hours: stripHtml(i.usetime ?? ''),
+    admission: stripHtml(admissionItem?.infotext ?? ''),
     image: c.firstimage ?? '',
   };
 }
@@ -73,9 +85,9 @@ export async function getAttractionFromEngAPI(contentId: string): Promise<TourAP
 
   return {
     name: c.title.replace(/\s*\(.*?\)\s*$/, ''),
-    description: c.overview,
+    description: stripHtml(c.overview ?? ''),
     center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
-    hours: i.usetime ?? '',
+    hours: stripHtml(i.usetime ?? ''),
     admission: '',
     image: c.firstimage ?? '',
   };

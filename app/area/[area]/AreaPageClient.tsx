@@ -78,7 +78,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
         <div className="h-[45vh] shrink-0">
           <TourMap
-            attractions={sectorAttractions}
+            attractions={attractions}
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
@@ -96,7 +96,11 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                 return (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSector(s.sectorKo); setSelectedId(null); }}
+                    onClick={() => {
+                    setActiveSector(s.sectorKo);
+                    const first = attractions.find((a) => a.sector === s.sectorKo);
+                    setSelectedId(first?.id ?? null);
+                  }}
                     className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                       active
                         ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
