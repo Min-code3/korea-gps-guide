@@ -33,6 +33,7 @@ const DESC_LIMIT = 55;
 export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center }: Props) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isSectorMode, setIsSectorMode] = useState(true);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
 
@@ -53,12 +54,25 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     [attractions, activeSector]
   );
 
+  const sectorIds = useMemo(
+    () => sectorAttractions.map((a) => a.id),
+    [sectorAttractions]
+  );
+
   const handleCardTap = (attractionId: string) => {
-    if (selectedId === attractionId) {
+    if (!isSectorMode && selectedId === attractionId) {
       router.push(`/guide/${attractionId}?lang=${lang}`);
     } else {
+      setIsSectorMode(false);
       setSelectedId(attractionId);
     }
+  };
+
+  const handlePinClick = (attractionId: string) => {
+    const attr = attractions.find((a) => a.id === attractionId);
+    if (attr?.sector) setActiveSector(attr.sector);
+    setIsSectorMode(false);
+    setSelectedId(attractionId);
   };
 
   const openLightbox = (images: string[], index: number, e: React.MouseEvent) => {
@@ -82,7 +96,9 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
-            onPinClick={handleCardTap}
+            sectorIds={sectorIds}
+            isSectorMode={isSectorMode}
+            onPinClick={handlePinClick}
           />
         </div>
 
@@ -98,6 +114,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                     key={s.id}
                     onClick={() => {
                     setActiveSector(s.sectorKo);
+                    setIsSectorMode(true);
                     const first = attractions.find((a) => a.sector === s.sectorKo);
                     setSelectedId(first?.id ?? null);
                   }}
@@ -118,7 +135,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
         {/* attraction list */}
         <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
           {sectorAttractions.map((attraction) => {
-            const isSelected = selectedId === attraction.id;
+            const isSelected = !isSectorMode && selectedId === attraction.id;
             const images = (attraction.images ?? []).map(toHttps);
             const thumb = images[0];
             const nightTag = attraction.tags?.find((tag) => tagMap[tag]);

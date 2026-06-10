@@ -9,6 +9,8 @@ interface TourMapProps {
   center: { lat: number; lng: number };
   defaultZoom: number;
   selectedId: string | null;
+  sectorIds?: string[];   // sector mode: these are all orange
+  isSectorMode?: boolean; // true = highlight sectorIds, false = highlight selectedId only
   onPinClick: (attractionId: string) => void;
 }
 
@@ -21,7 +23,7 @@ const MAP_STYLES = [
 
 const CIRCLE = 0 as unknown as google.maps.SymbolPath;
 
-export default function TourMap({ attractions, center, defaultZoom, selectedId, onPinClick }: TourMapProps) {
+export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick }: TourMapProps) {
   const mapRef = useRef<google.maps.Map | null>(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -58,21 +60,26 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
       }}
       onLoad={(map) => { mapRef.current = map; }}
     >
-      {attractions.map((attraction) => (
-        <Marker
-          key={attraction.id}
-          position={attraction.center}
-          icon={{
-            path: CIRCLE,
-            scale: attraction.id === selectedId ? 11 : 8,
-            fillColor: attraction.id === selectedId ? '#f97316' : '#1d4ed8',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-          }}
-          onClick={() => onPinClick(attraction.id)}
-        />
-      ))}
+      {attractions.map((attraction) => {
+        const isSingle = !isSectorMode && attraction.id === selectedId;
+        const isInSector = isSectorMode && sectorIds.includes(attraction.id);
+        const isOrange = isSingle || isInSector;
+        return (
+          <Marker
+            key={attraction.id}
+            position={attraction.center}
+            icon={{
+              path: CIRCLE,
+              scale: isSingle ? 11 : 8,
+              fillColor: isOrange ? '#f97316' : '#1d4ed8',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
+            onClick={() => onPinClick(attraction.id)}
+          />
+        );
+      })}
     </GoogleMap>
   );
 }

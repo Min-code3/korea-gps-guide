@@ -1,11 +1,16 @@
+const HTML_ENTITIES: Record<string, string> = {
+  '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+  '&quot;': '"', '&apos;': "'", '&rsquo;': '’', '&lsquo;': '‘',
+  '&rdquo;': '”', '&ldquo;': '“', '&ndash;': '–', '&mdash;': '—',
+  '&hellip;': '...', '&bull;': '•', '&middot;': '·',
+};
+
 function stripHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/&[a-z]+;/gi, (e) => HTML_ENTITIES[e] ?? e)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
