@@ -36,7 +36,7 @@ export default async function AreaPage({
   return (
     <>
       <div className="absolute top-4 right-4 z-50">
-        <LangToggle />
+        <LangToggle lang={lang as 'ko' | 'en'} />
       </div>
       <AreaPageClient
         area={decodedArea}

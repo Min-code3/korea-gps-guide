@@ -1,25 +1,23 @@
 'use client';
 
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Suspense } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 export type Lang = 'ko' | 'en';
 
-function LangToggleInner() {
+interface Props {
+  lang?: Lang;
+}
+
+export default function LangToggle({ lang = 'ko' }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const lang = (searchParams.get('lang') as Lang) ?? 'ko';
 
   const toggle = (next: Lang) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('lang', next);
-    router.replace(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?lang=${next}`);
   };
 
   return (
     <div className="relative flex items-center bg-stone-100 rounded-full p-0.5 text-xs font-medium">
-      {/* sliding indicator */}
       <span
         className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full bg-white shadow-sm transition-transform duration-200"
         style={{ transform: lang === 'en' ? 'translateX(calc(100% + 4px))' : 'translateX(2px)' }}
@@ -37,13 +35,5 @@ function LangToggleInner() {
         English
       </button>
     </div>
-  );
-}
-
-export default function LangToggle() {
-  return (
-    <Suspense fallback={<div className="h-8 w-36 rounded-full bg-stone-100 animate-pulse" />}>
-      <LangToggleInner />
-    </Suspense>
   );
 }

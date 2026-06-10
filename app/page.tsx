@@ -21,7 +21,7 @@ export default async function HomePage({
           <h1 className="text-2xl font-bold text-stone-900 mb-1">{t(lang as 'ko' | 'en', 'home.title')}</h1>
           <p className="text-sm text-stone-400">{t(lang as 'ko' | 'en', 'home.subtitle')}</p>
         </div>
-        <LangToggle />
+        <LangToggle lang={lang as 'ko' | 'en'} />
       </div>
       <HomePageClient areas={areas} coverImages={coverImages} lang={lang} />
     </main>
