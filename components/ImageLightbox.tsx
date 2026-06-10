@@ -11,6 +11,8 @@ interface Props {
 }
 
 export default function ImageLightbox({ images, index, onClose, onPrev, onNext }: Props) {
+  const valid = images.filter(Boolean);
+  const safeIndex = valid.length > 0 ? Math.min(index, valid.length - 1) : 0;
   const touchStartX = useRef<number>(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -39,10 +41,10 @@ export default function ImageLightbox({ images, index, onClose, onPrev, onNext }
       </button>
 
       <p className="absolute top-5 left-1/2 -translate-x-1/2 text-white/60 text-xs z-10">
-        {index + 1} / {images.length}
+        {safeIndex + 1} / {valid.length}
       </p>
 
-      {images.length > 1 && (
+      {valid.length > 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); onPrev(); }}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl px-2 py-4 z-10"
@@ -51,17 +53,19 @@ export default function ImageLightbox({ images, index, onClose, onPrev, onNext }
         </button>
       )}
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={images[index]}
-        alt=""
-        className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchEnd={(e) => e.stopPropagation()}
-      />
+      {valid[safeIndex] && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={valid[safeIndex]}
+          alt=""
+          className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        />
+      )}
 
-      {images.length > 1 && (
+      {valid.length > 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); onNext(); }}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-4xl px-2 py-4 z-10"
