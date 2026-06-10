@@ -14,12 +14,13 @@ export default function LangToggle({ lang = 'ko' }: Props) {
 
   const toggle = (next: Lang) => {
     router.replace(`${pathname}?lang=${next}`);
+    router.refresh();
   };
 
   return (
     <div className="relative flex items-center bg-stone-100 rounded-full p-0.5 text-xs font-medium">
       <span
-        className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full bg-white shadow-sm transition-transform duration-200"
+        className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full bg-white shadow-sm transition-transform duration-200 pointer-events-none"
         style={{ transform: lang === 'en' ? 'translateX(calc(100% + 4px))' : 'translateX(2px)' }}
       />
       <button

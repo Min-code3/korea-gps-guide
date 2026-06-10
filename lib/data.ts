@@ -60,23 +60,29 @@ async function fetchAPIData(row: { korContentId: string; engContentId: string; n
 
   if (lang === 'ko') {
     if (!row.korContentId) return { apiData: fallback, images: [] };
-    const [apiData, images] = await Promise.all([
-      getAttractionFromAPI(row.korContentId),
-      getAttractionImages(row.korContentId),
-    ]);
-    return { apiData, images };
+    try {
+      const [apiData, images] = await Promise.all([
+        getAttractionFromAPI(row.korContentId),
+        getAttractionImages(row.korContentId),
+      ]);
+      return { apiData, images };
+    } catch {
+      return { apiData: fallback, images: [] };
+    }
   }
 
-  // 영어: engContentId 없으면 korContentId로 폴백
   const engId = row.engContentId || row.korContentId;
   if (!engId) return { apiData: fallback, images: [] };
 
-  const [engData, images] = await Promise.all([
-    getAttractionFromEngAPI(engId),
-    row.korContentId ? getAttractionImages(row.korContentId) : Promise.resolve([]),
-  ]);
-
-  return { apiData: engData, images };
+  try {
+    const [engData, images] = await Promise.all([
+      getAttractionFromEngAPI(engId),
+      row.korContentId ? getAttractionImages(row.korContentId) : Promise.resolve([]),
+    ]);
+    return { apiData: engData, images };
+  } catch {
+    return { apiData: fallback, images: [] };
+  }
 }
 
 export async function getAreas(): Promise<AreaRow[]> {
