@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Attraction } from '@/lib/types';
+import type { SectorRow } from '@/lib/sheets';
 import { t } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
 
@@ -13,7 +14,8 @@ interface Props {
   area: string;
   lang: string;
   attractions: Attraction[];
-  tagMap: Record<string, string>; // { '🌆': 'Night View', ... }
+  sectors: SectorRow[];
+  tagMap: Record<string, string>;
   center: { lat: number; lng: number };
 }
 
@@ -26,27 +28,30 @@ function toHttps(url: string) {
   return url.replace(/^http:\/\//i, 'https://');
 }
 
+const DESC_LIMIT = 55;
 
-export default function AreaPageClient({ area, lang, attractions, tagMap, center }: Props) {
+export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center }: Props) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
 
-  // collect unique tags that at least one attraction has
-  const allTags = useMemo(() => {
-    const seen = new Set<string>();
-    attractions.forEach((a) => a.tags?.forEach((t) => seen.add(t)));
-    return Array.from(seen);
-  }, [attractions]);
+  const sortedSectors = useMemo(
+    () => [...sectors].sort((a, b) => a.priority - b.priority),
+    [sectors]
+  );
 
-  // when a tag is toggled, bump matching attractions to the top (preserve relative order within each group)
-  const visible = activeTag
-    ? [
-        ...attractions.filter((a) => a.tags?.includes(activeTag)),
-        ...attractions.filter((a) => !a.tags?.includes(activeTag)),
-      ]
-    : attractions;
+  const [activeSector, setActiveSector] = useState<string>(
+    sortedSectors[0]?.sectorKo ?? ''
+  );
+
+  const sectorAttractions = useMemo(
+    () =>
+      activeSector
+        ? attractions.filter((a) => a.sector === activeSector)
+        : attractions,
+    [attractions, activeSector]
+  );
 
   const handleCardTap = (attractionId: string) => {
     if (selectedId === attractionId) {
@@ -61,7 +66,6 @@ export default function AreaPageClient({ area, lang, attractions, tagMap, center
     setLightbox({ images, index });
   };
 
-
   return (
     <>
       <main className="relative flex flex-col h-dvh overflow-hidden bg-stone-50">
@@ -74,7 +78,7 @@ export default function AreaPageClient({ area, lang, attractions, tagMap, center
 
         <div className="h-[45vh] shrink-0">
           <TourMap
-            attractions={attractions}
+            attractions={sectorAttractions}
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
@@ -82,36 +86,41 @@ export default function AreaPageClient({ area, lang, attractions, tagMap, center
           />
         </div>
 
-        {/* title + filter chips */}
-        <div className="px-5 pt-4 pb-3 bg-stone-50">
-          <h1 className="text-lg font-bold text-stone-800 mb-2">{area}</h1>
-          {allTags.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {allTags.map((tag) => {
-                const active = activeTag === tag;
+        {/* sector tabs */}
+        {sortedSectors.length > 0 && (
+          <div className="px-5 pt-3 pb-2 bg-stone-50 shrink-0">
+            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+              {sortedSectors.map((s) => {
+                const label = lang === 'en' ? (s.sectorEn || s.sectorKo) : s.sectorKo;
+                const active = activeSector === s.sectorKo;
                 return (
                   <button
-                    key={tag}
-                    onClick={() => setActiveTag(active ? null : tag)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
+                    key={s.id}
+                    onClick={() => { setActiveSector(s.sectorKo); setSelectedId(null); }}
+                    className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                       active
-                        ? 'bg-amber-500 border-amber-500 text-white font-bold shadow-sm'
-                        : 'bg-white border-amber-300 text-amber-700'
+                        ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                        : 'bg-white border-stone-200 text-stone-600'
                     }`}
                   >
-                    {tagMap[tag] ?? tag}
+                    {label}
                   </button>
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3">
-          {visible.map((attraction) => {
+        {/* attraction list */}
+        <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
+          {sectorAttractions.map((attraction) => {
             const isSelected = selectedId === attraction.id;
             const images = (attraction.images ?? []).map(toHttps);
             const thumb = images[0];
+            const nightTag = attraction.tags?.find((tag) => tagMap[tag]);
+            const desc = attraction.description ?? '';
+            const shortDesc = desc.length > DESC_LIMIT ? desc.slice(0, DESC_LIMIT) : desc;
+            const hasMore = desc.length > DESC_LIMIT;
 
             return (
               <button
@@ -120,36 +129,50 @@ export default function AreaPageClient({ area, lang, attractions, tagMap, center
                 onClick={() => handleCardTap(attraction.id)}
               >
                 <div className="flex items-start gap-3">
-                  {/* text */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    {/* name + star + night tag */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="text-base font-bold text-stone-800">{attraction.name}</p>
-                      {attraction.star && (
-                        <span className="text-sm">{attraction.star}</span>
-                      )}
+                      {attraction.star && <span className="text-sm">{attraction.star}</span>}
+                      {nightTag && <span className="text-sm">{nightTag.split(' ')[0]}</span>}
                     </div>
-                    {attraction.description && (
-                      <p className="text-sm text-stone-400 mt-0.5 line-clamp-2">{attraction.description}</p>
+
+                    {/* description */}
+                    {shortDesc && (
+                      <p className="text-sm text-stone-400 mt-0.5">
+                        {shortDesc}
+                        {hasMore && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="text-amber-500 font-medium ml-0.5"
+                            onClick={(e) => { e.stopPropagation(); setDetailAttr(attraction); }}
+                            onKeyDown={(e) => e.key === 'Enter' && setDetailAttr(attraction)}
+                          >
+                            ...{lang === 'en' ? 'more' : '더보기'}
+                          </span>
+                        )}
+                      </p>
                     )}
-                    {(attraction.admission || attraction.hours || attraction.tags?.length) && (
-                      <div className="flex items-center gap-1 mt-1">
-                        {/* tag emoji only (before first space) — fixed width so 🎫 always aligns */}
-                        <span className="inline-block w-5 text-center text-sm leading-none">
-                          {attraction.tags?.[0]?.split(' ')[0] ?? ''}
-                        </span>
-                        <p className="text-xs text-stone-400">
-                          {attraction.admission && `🎫 ${attraction.admission}`}
-                          {attraction.admission && attraction.hours && '  '}
-                          {attraction.hours && `⏰ ${attraction.hours}`}
-                        </p>
-                      </div>
+
+                    {/* admission */}
+                    {attraction.admission && (
+                      <p className="text-xs text-stone-400 mt-1">🎫 {attraction.admission}</p>
                     )}
+
+                    {/* hours */}
+                    {attraction.hours && (
+                      <p className="text-xs text-stone-400 mt-0.5">⏰ {attraction.hours}</p>
+                    )}
+
                     {isSelected && (
-                      <p className="text-xs text-amber-600 mt-2 font-medium">{t(lang as 'ko' | 'en', 'tapAgain')}</p>
+                      <p className="text-xs text-amber-600 mt-2 font-medium">
+                        {t(lang as 'ko' | 'en', 'tapAgain')}
+                      </p>
                     )}
                   </div>
 
-                  {/* thumbnail — fixed 80×80, inline style enforces regardless of CSS cascade */}
+                  {/* thumbnail */}
                   <div
                     role="button"
                     tabIndex={0}
@@ -175,9 +198,32 @@ export default function AreaPageClient({ area, lang, attractions, tagMap, center
               </button>
             );
           })}
-
         </div>
       </main>
+
+      {/* description detail popup */}
+      {detailAttr && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/50 flex items-end justify-center"
+          onClick={() => setDetailAttr(null)}
+        >
+          <div
+            className="bg-white rounded-t-2xl w-full max-w-lg px-6 pt-5 pb-10 max-h-[60vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-bold text-stone-800 text-base">{detailAttr.name}</p>
+              <button
+                onClick={() => setDetailAttr(null)}
+                className="text-stone-400 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-stone-600 leading-relaxed">{detailAttr.description}</p>
+          </div>
+        </div>
+      )}
 
       {lightbox && (
         <ImageLightbox

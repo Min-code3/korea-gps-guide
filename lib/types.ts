@@ -20,6 +20,7 @@ export interface Pin {
 export interface Attraction {
   id: string;
   name: string;
+  sector?: string;
   description?: string;
   guideTitle?: string; // shown in audio guide player — falls back to name if not set
   admission?: string; // e.g. "Free" or "₩3,000"

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getAttractionsByArea } from '@/lib/data';
-import { getTagRows } from '@/lib/sheets';
+import { getTagRows, getSectorRows } from '@/lib/sheets';
 import AreaPageClient from './AreaPageClient';
 import LangToggle from '@/components/LangToggle';
 
@@ -14,14 +14,15 @@ export default async function AreaPage({
   const [{ area }, { lang = 'ko' }] = await Promise.all([params, searchParams]);
   const decodedArea = decodeURIComponent(area);
 
-  const [attractions, tagRows] = await Promise.all([
+  const [attractions, tagRows, sectorRows] = await Promise.all([
     getAttractionsByArea(decodedArea, lang as 'ko' | 'en'),
     getTagRows(),
+    getSectorRows(),
   ]);
   if (attractions.length === 0) return notFound();
 
-  // { '🌆': 'Night View', ... }
   const tagMap = Object.fromEntries(tagRows.map((t) => [t.tag, t.label]));
+  const sectors = sectorRows.filter((s) => s.area === decodedArea);
 
   const lats = attractions.map((a) => a.center.lat).filter(Boolean);
   const lngs = attractions.map((a) => a.center.lng).filter(Boolean);
@@ -42,6 +43,7 @@ export default async function AreaPage({
         area={decodedArea}
         lang={lang}
         attractions={attractions}
+        sectors={sectors}
         tagMap={tagMap}
         center={center}
       />

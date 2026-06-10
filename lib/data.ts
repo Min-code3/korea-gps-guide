@@ -38,6 +38,7 @@ function buildAttraction(
   return {
     id: row.id,
     name: apiData.name,
+    sector: row.sector || undefined,
     description: apiData.description,
     center: apiData.center,
     hours: apiData.hours,
