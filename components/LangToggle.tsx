@@ -14,7 +14,6 @@ export default function LangToggle({ lang = 'ko' }: Props) {
 
   const toggle = (next: Lang) => {
     router.replace(`${pathname}?lang=${next}`);
-    router.refresh();
   };
 
   return (
