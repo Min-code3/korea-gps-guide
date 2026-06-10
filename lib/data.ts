@@ -110,8 +110,12 @@ export async function getAreaCoverImages(): Promise<Record<string, string[]>> {
       const images = await Promise.all(
         sorted.map(async (row) => {
           if (!row.korContentId) return '';
-          const imgs = await getAttractionImages(row.korContentId);
-          return imgs[0] ? toHttps(imgs[0]) : '';
+          try {
+            const imgs = await getAttractionImages(row.korContentId);
+            return imgs[0] ? toHttps(imgs[0]) : '';
+          } catch {
+            return '';
+          }
         }),
       );
       result[area] = images.filter(Boolean);

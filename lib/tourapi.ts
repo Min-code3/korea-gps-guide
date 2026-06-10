@@ -51,7 +51,12 @@ async function fetchJSON(base: string, endpoint: string, params: Record<string, 
   const res = await fetch(`${base}/${endpoint}?${qs}`, {
     next: { revalidate: 3600 },
   });
-  return res.json();
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`TourAPI error (${endpoint}): ${text.slice(0, 200)}`);
+  }
 }
 
 export async function getAttractionFromAPI(contentId: string, contentTypeId = '12'): Promise<TourAPIAttraction> {
