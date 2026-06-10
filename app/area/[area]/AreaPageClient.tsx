@@ -138,7 +138,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             const isSelected = !isSectorMode && selectedId === attraction.id;
             const images = (attraction.images ?? []).map(toHttps);
             const thumb = images[0];
-            const nightTag = attraction.tags?.find((tag) => tagMap[tag]);
+            const tagBadges = (attraction.tags ?? []).filter((tag) => tagMap[tag]);
             const desc = attraction.description ?? '';
             const shortDesc = desc.length > DESC_LIMIT ? desc.slice(0, DESC_LIMIT) : desc;
             const hasMore = desc.length > DESC_LIMIT;
@@ -151,11 +151,15 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    {/* name + star + night tag */}
+                    {/* name + star + tag badges */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="text-base font-bold text-stone-800">{attraction.name}</p>
                       {attraction.star && <span className="text-sm">{attraction.star}</span>}
-                      {nightTag && <span className="text-sm">{nightTag.split(' ')[0]}</span>}
+                      {tagBadges.map((tag) => (
+                        <span key={tag} className="text-xs px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 bg-amber-50">
+                          {tagMap[tag]}
+                        </span>
+                      ))}
                     </div>
 
                     {/* description */}
