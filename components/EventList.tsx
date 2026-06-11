@@ -83,7 +83,7 @@ export default function EventList({ area, lang }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/events?area=${encodeURIComponent(area)}`)
+    fetch(`/api/events?area=${encodeURIComponent(area)}&lang=${lang}`)
       .then(r => r.json())
       .then(data => {
         setEvents(data.events ?? []);

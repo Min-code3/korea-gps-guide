@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Attraction, RestaurantPin } from '@/lib/types';
 import type { SectorRow } from '@/lib/sheets';
@@ -40,6 +40,14 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
   const [restaurantPins, setRestaurantPins] = useState<RestaurantPin[]>([]);
   const [mode, setMode] = useState<'attractions' | 'events'>('attractions');
+  const [areaEvents, setAreaEvents] = useState<{ title: string; addr1: string; eventstartdate: string; eventenddate: string; contentid: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/events?area=${encodeURIComponent(area)}&lang=${lang}`)
+      .then(r => r.json())
+      .then(data => setAreaEvents(data.events ?? []))
+      .catch(() => {});
+  }, [area, lang]);
 
   const sortedSectors = useMemo(
     () => [...sectors].sort((a, b) => a.priority - b.priority),
@@ -78,6 +86,18 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     setIsSectorMode(false);
     setSelectedId(attractionId);
   };
+
+  // 현재 sector의 addr_keyword와 일치하는 행사
+  const sectorEvents = useMemo(() => {
+    const keywords = (sortedSectors.find(s => s.sectorKo === activeSector)?.addrKeyword ?? '')
+      .split(',').map(k => k.trim()).filter(Boolean);
+    if (!keywords.length) return [];
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return areaEvents.filter(e =>
+      e.eventenddate >= today &&
+      keywords.some(kw => (e.addr1 ?? '').includes(kw))
+    );
+  }, [areaEvents, activeSector, sortedSectors]);
 
   const openLightbox = (images: string[], index: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -260,6 +280,26 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
               </button>
             );
           })}
+
+          {/* sector 매칭 행사 */}
+          {sectorEvents.length > 0 && (
+            <>
+              <p className="text-xs text-stone-400 font-medium pt-2 pb-1">이 지역 행사</p>
+              {sectorEvents.map(event => {
+                const m = (d: string) => `${parseInt(d.slice(4,6))}.${parseInt(d.slice(6,8))}`;
+                return (
+                  <div key={event.contentid} className="w-full text-left bg-white rounded-2xl shadow-sm px-4 py-3">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">진행중</span>
+                      <span className="text-xs text-stone-400">{m(event.eventstartdate)} ~ {m(event.eventenddate)}</span>
+                    </div>
+                    <p className="font-bold text-stone-800 text-sm">{event.title}</p>
+                    <p className="text-xs text-stone-400 mt-0.5 truncate">{event.addr1}</p>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>}
       </main>
 

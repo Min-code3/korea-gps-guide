@@ -35,11 +35,12 @@ async function fetchDetail(base: string, key: string, contentId: string) {
 
 export async function GET(req: NextRequest) {
   const area = req.nextUrl.searchParams.get('area') ?? '';
+  const lang = req.nextUrl.searchParams.get('lang') ?? 'ko';
   const areaCode = AREA_CODE_MAP[area];
   if (!areaCode) return NextResponse.json({ events: [], supported: false });
 
   const KEY = process.env.TOUR_API_KEY!;
-  const BASE = process.env.TOUR_API_KR_BASE!;
+  const BASE = lang === 'en' ? process.env.TOUR_API_ENG_BASE! : process.env.TOUR_API_KR_BASE!;
 
   const qs = new URLSearchParams({
     serviceKey: KEY, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide',

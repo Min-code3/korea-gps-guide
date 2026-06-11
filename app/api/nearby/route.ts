@@ -11,8 +11,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'mapX, mapY required' }, { status: 400 });
   }
 
+  const lang = searchParams.get('lang') ?? 'ko';
   const KEY = process.env.TOUR_API_KEY!;
-  const BASE = process.env.TOUR_API_KR_BASE!;
+  const BASE = lang === 'en' ? process.env.TOUR_API_ENG_BASE! : process.env.TOUR_API_KR_BASE!;
 
   const qs = new URLSearchParams({
     serviceKey: KEY,

@@ -89,7 +89,7 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound }: P
 
     let list: Restaurant[] = [];
     try {
-      const res = await fetch(`/api/nearby?mapX=${lng}&mapY=${lat}&radius=${radius}&contentTypeId=39`);
+      const res = await fetch(`/api/nearby?mapX=${lng}&mapY=${lat}&radius=${radius}&contentTypeId=39&lang=${lang}`);
       const data = await res.json();
       const items = data.response?.body?.items?.item ?? [];
       list = Array.isArray(items) ? items : [items];
@@ -117,7 +117,7 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound }: P
       const results = await Promise.all(
         list.map(async (r) => {
           try {
-            const res = await fetch(`/api/restaurant-detail?contentId=${r.contentid}`);
+            const res = await fetch(`/api/restaurant-detail?contentId=${r.contentid}&lang=${lang}`);
             const data = await res.json();
             const info: RestaurantDetail = data.response?.body?.items?.item?.[0] ?? {};
             return [r.contentid, info] as const;

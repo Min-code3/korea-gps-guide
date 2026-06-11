@@ -86,13 +86,14 @@ export async function getAttractionRows(): Promise<AttractionRow[]> {
 }
 
 // ── Sheet: sector ────────────────────────────────────────────────────
-// id | area | sector | priority | sector_en
+// id | area | sector | priority | sector_en | addr_keyword
 export interface SectorRow {
   id: string;
   area: string;
   sectorKo: string;
   priority: number;
   sectorEn: string;
+  addrKeyword: string; // comma-separated, e.g. "해운대,수영구"
 }
 
 export async function getSectorRows(): Promise<SectorRow[]> {
@@ -105,6 +106,7 @@ export async function getSectorRows(): Promise<SectorRow[]> {
       sectorKo: r[2] ?? '',
       priority: parseInt(r[3]) || 0,
       sectorEn: r[4] ?? '',
+      addrKeyword: r[5] ?? '',
     }));
 }
 
