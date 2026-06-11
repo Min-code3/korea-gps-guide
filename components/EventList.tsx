@@ -2,6 +2,17 @@
 
 import { useState, useEffect, useMemo } from 'react';
 
+interface EventDetail {
+  overview?: string | null;
+  homepage?: string | null;
+  tel?: string | null;
+  playtime?: string | null;
+  eventplace?: string | null;
+  usetimefestival?: string | null;
+  sponsor1?: string | null;
+  sponsor1tel?: string | null;
+}
+
 interface FestivalItem {
   contentid: string;
   title: string;
@@ -10,6 +21,7 @@ interface FestivalItem {
   eventenddate: string;
   firstimage: string;
   tel: string;
+  detail?: EventDetail;
 }
 
 interface Props {
@@ -64,8 +76,6 @@ export default function EventList({ area, lang }: Props) {
   const [supported, setSupported] = useState(true);
   const [filter, setFilter] = useState<string>('thisweek');
   const [selected, setSelected] = useState<FestivalItem | null>(null);
-  const [overview, setOverview] = useState<string | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const todayYMD = useMemo(() => toYMD(today), [today]);
@@ -100,16 +110,8 @@ export default function EventList({ area, lang }: Props) {
     });
   }, [events, filter, today, todayYMD, year]);
 
-  const openDetail = async (event: FestivalItem) => {
+  const openDetail = (event: FestivalItem) => {
     setSelected(event);
-    setOverview(null);
-    setOverviewLoading(true);
-    try {
-      const res = await fetch(`/api/event-detail?contentId=${event.contentid}`);
-      const data = await res.json();
-      setOverview(data.overview ? stripHtml(data.overview) : null);
-    } catch {}
-    setOverviewLoading(false);
   };
 
   const filterLabel = filter === 'thisweek' ? (lang === 'en' ? 'this week' : '이번주')
@@ -182,8 +184,11 @@ export default function EventList({ area, lang }: Props) {
                   </span>
                 </div>
                 <p className="font-bold text-stone-800 text-sm">{event.title}</p>
-                {event.addr1 && (
-                  <p className="text-xs text-stone-400 mt-0.5 truncate">{event.addr1}</p>
+                {event.detail?.playtime && (
+                  <p className="text-xs text-stone-500 mt-0.5 truncate">{stripHtml(event.detail.playtime)}</p>
+                )}
+                {event.detail?.overview && (
+                  <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{stripHtml(event.detail.overview)}</p>
                 )}
               </div>
 
@@ -225,21 +230,31 @@ export default function EventList({ area, lang }: Props) {
                   className="w-full h-44 object-cover" />
               )}
               <div className="px-5 pt-4 flex flex-col gap-0">
-                {[
-                  { label: '기간', value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
-                  { label: '장소', value: selected.addr1 },
-                  selected.tel ? { label: '전화', value: selected.tel } : null,
-                ].filter(Boolean).map(row => row && (
-                  <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100">
-                    <p className="text-xs text-stone-400 w-12 shrink-0 pt-0.5">{row.label}</p>
-                    <p className="text-sm text-stone-700 flex-1">{row.value}</p>
-                  </div>
-                ))}
-                {overviewLoading ? (
-                  <p className="text-sm text-stone-400 py-4 text-center">내용 불러오는 중...</p>
-                ) : overview ? (
-                  <p className="text-sm text-stone-600 leading-relaxed py-3 whitespace-pre-line">{overview}</p>
-                ) : null}
+                {(() => {
+                  const d = selected.detail ?? {};
+                  const rows = [
+                    { label: '기간',   value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
+                    d.eventplace      && { label: '행사장소', value: d.eventplace },
+                    { label: '주소',   value: selected.addr1 },
+                    d.playtime        && { label: '운영시간', value: stripHtml(d.playtime) },
+                    d.usetimefestival && { label: '요금',    value: d.usetimefestival },
+                    d.tel             && { label: '전화',    value: d.tel },
+                    d.sponsor1        && { label: '주최',    value: d.sponsor1 },
+                    d.sponsor1tel     && { label: '주최 연락', value: d.sponsor1tel },
+                    d.homepage        && { label: '홈페이지', value: d.homepage.replace(/<[^>]+>/g,'').trim() },
+                  ].filter(Boolean) as { label: string; value: string }[];
+                  return rows.map(row => (
+                    <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
+                      <p className="text-xs text-stone-400 w-16 shrink-0 pt-0.5">{row.label}</p>
+                      <p className="text-sm text-stone-700 flex-1 whitespace-pre-line">{row.value}</p>
+                    </div>
+                  ));
+                })()}
+                {selected.detail?.overview && (
+                  <p className="text-sm text-stone-600 leading-relaxed py-3 whitespace-pre-line border-t border-stone-100">
+                    {stripHtml(selected.detail.overview)}
+                  </p>
+                )}
               </div>
             </div>
           </div>

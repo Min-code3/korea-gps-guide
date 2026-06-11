@@ -9,6 +9,30 @@ const AREA_CODE_MAP: Record<string, string> = {
   '전주': '37', '강릉': '32', '속초': '32', '여수': '38',
 };
 
+async function fetchDetail(base: string, key: string, contentId: string) {
+  const common = new URLSearchParams({ serviceKey: key, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide', _type: 'json', contentId });
+  const intro = new URLSearchParams({ ...Object.fromEntries(common), contentTypeId: '15' });
+
+  const [commonRes, introRes] = await Promise.all([
+    fetch(`${base}/detailCommon2?${common}`).then(r => r.text()).catch(() => '{}'),
+    fetch(`${base}/detailIntro2?${intro}`).then(r => r.text()).catch(() => '{}'),
+  ]);
+
+  const commonItem = JSON.parse(commonRes)?.response?.body?.items?.item?.[0] ?? {};
+  const introItem  = JSON.parse(introRes)?.response?.body?.items?.item?.[0] ?? {};
+
+  return {
+    overview:       commonItem.overview       ?? null,
+    homepage:       commonItem.homepage       ?? null,
+    tel:            commonItem.tel            ?? null,
+    playtime:       introItem.playtime        ?? null,
+    eventplace:     introItem.eventplace      ?? null,
+    usetimefestival:introItem.usetimefestival ?? null,
+    sponsor1:       introItem.sponsor1        ?? null,
+    sponsor1tel:    introItem.sponsor1tel     ?? null,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const area = req.nextUrl.searchParams.get('area') ?? '';
   const areaCode = AREA_CODE_MAP[area];
@@ -27,8 +51,14 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(`${BASE}/searchFestival2?${qs}`, { next: { revalidate: 3600 } });
     const data = JSON.parse(await res.text());
-    const items = data.response?.body?.items?.item ?? [];
-    return NextResponse.json({ events: Array.isArray(items) ? items : [items], supported: true });
+    const raw = data.response?.body?.items?.item ?? [];
+    const events = Array.isArray(raw) ? raw : [raw];
+
+    // 상세 정보 서버에서 batch fetch (캐시 1시간)
+    const details = await Promise.all(events.map(e => fetchDetail(BASE, KEY, e.contentid)));
+    const enriched = events.map((e, i) => ({ ...e, detail: details[i] }));
+
+    return NextResponse.json({ events: enriched, supported: true });
   } catch (e) {
     return NextResponse.json({ events: [], supported: true, error: String(e) }, { status: 500 });
   }
