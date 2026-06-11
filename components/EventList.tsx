@@ -140,6 +140,7 @@ export default function EventList({ area, lang }: Props) {
               backgroundPosition: 'right 14px center',
             }}
           >
+            {/* 하드코딩 한국어 — 언어 추가 시 여기 수정 필요 */}
             <option value="thisweek">이번주</option>
             <option value="all">전체</option>
             {MONTHS.map((m, i) => (
