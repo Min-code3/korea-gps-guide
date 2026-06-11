@@ -307,11 +307,15 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound }: P
   );
 }
 
+function cleanText(value: string) {
+  return value.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
       <p className="text-xs text-stone-400 w-14 shrink-0 pt-0.5">{label}</p>
-      <p className="text-sm text-stone-700 flex-1">{value}</p>
+      <p className="text-sm text-stone-700 flex-1 whitespace-pre-line">{cleanText(value)}</p>
     </div>
   );
 }
