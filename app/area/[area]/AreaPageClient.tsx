@@ -8,6 +8,7 @@ import type { SectorRow } from '@/lib/sheets';
 import { t } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
 import NearbyPanel from '@/components/NearbyPanel';
+import EventList from '@/components/EventList';
 
 const TourMap = dynamic(() => import('@/components/TourMap'), { ssr: false });
 
@@ -38,6 +39,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
   const [restaurantPins, setRestaurantPins] = useState<RestaurantPin[]>([]);
+  const [mode, setMode] = useState<'attractions' | 'events'>('attractions');
 
   const sortedSectors = useMemo(
     () => [...sectors].sort((a, b) => a.priority - b.priority),
@@ -113,9 +115,25 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
           />
         </div>
 
+        {/* 명소 / 행사 모드 탭 */}
+        <div className="px-5 pt-3 pb-1 shrink-0 flex gap-2">
+          <button
+            onClick={() => setMode('attractions')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === 'attractions' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
+          >
+            {lang === 'en' ? 'Attractions' : '명소'}
+          </button>
+          <button
+            onClick={() => setMode('events')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === 'events' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
+          >
+            {lang === 'en' ? 'Events' : '행사'}
+          </button>
+        </div>
+
         {/* sector tabs */}
-        {sortedSectors.length > 0 && (
-          <div className="px-5 pt-3 pb-2 bg-stone-50 shrink-0">
+        {mode === 'attractions' && sortedSectors.length > 0 && (
+          <div className="px-5 pt-2 pb-2 bg-stone-50 shrink-0">
             <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
               {sortedSectors.map((s) => {
                 const label = lang === 'en' ? (s.sectorEn || s.sectorKo) : s.sectorKo;
@@ -143,8 +161,13 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
           </div>
         )}
 
+        {/* 행사 리스트 */}
+        {mode === 'events' && (
+          <EventList area={area} lang={lang} />
+        )}
+
         {/* attraction list */}
-        <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
+        {mode === 'attractions' && <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
           {sectorAttractions.map((attraction) => {
             const isSelected = !isSectorMode && selectedId === attraction.id;
             const images = (attraction.images ?? []).map(toHttps);
@@ -234,7 +257,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
               </button>
             );
           })}
-        </div>
+        </div>}
       </main>
 
       {/* description detail popup */}
