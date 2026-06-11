@@ -112,9 +112,12 @@ export default function EventList({ area, lang }: Props) {
     setOverviewLoading(false);
   };
 
-  const emptyMsg = filter === 'thisweek'
-    ? (lang === 'en' ? 'No events this week.' : '이번주 행사가 없어요.')
-    : (lang === 'en' ? `No events in ${parseInt(filter)} month.` : `${parseInt(filter)}월에 열리는 행사가 없어요.`);
+  const filterLabel = filter === 'thisweek' ? (lang === 'en' ? 'this week' : '이번주')
+    : filter === 'all' ? (lang === 'en' ? 'any period' : '전체 기간')
+    : (lang === 'en' ? `month ${parseInt(filter)}` : `${parseInt(filter)}월`);
+  const emptyMsg = lang === 'en'
+    ? `No events for ${filterLabel}.`
+    : `${filterLabel}에 열리는 행사가 없어요.`;
 
   if (!supported) {
     return (
