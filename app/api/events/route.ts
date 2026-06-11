@@ -52,13 +52,18 @@ export async function GET(req: NextRequest) {
     const res = await fetch(`${BASE}/searchFestival2?${qs}`, { next: { revalidate: 3600 } });
     const data = JSON.parse(await res.text());
     const raw = data.response?.body?.items?.item ?? [];
-    const events = Array.isArray(raw) ? raw : [raw];
+    const all = Array.isArray(raw) ? raw : [raw];
 
-    // 상세 정보 서버에서 batch fetch (캐시 1시간)
-    const details = await Promise.all(events.map(e => fetchDetail(BASE, KEY, e.contentid)));
-    const enriched = events.map((e, i) => ({ ...e, detail: details[i] }));
+    // 종료된 행사는 상세 fetch 생략 — 오늘 날짜 기준 필터
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const active = all.filter((e: { eventenddate?: string }) => (e.eventenddate ?? '') >= today);
+    const ended  = all.filter((e: { eventenddate?: string }) => (e.eventenddate ?? '') <  today);
 
-    return NextResponse.json({ events: enriched, supported: true });
+    const details = await Promise.all(active.map((e: { contentid: string }) => fetchDetail(BASE, KEY, e.contentid)));
+    const enrichedActive = active.map((e: object, i: number) => ({ ...e, detail: details[i] }));
+    const enrichedEnded  = ended.map((e: object) => ({ ...e, detail: {} }));
+
+    return NextResponse.json({ events: [...enrichedActive, ...enrichedEnded], supported: true });
   } catch (e) {
     return NextResponse.json({ events: [], supported: true, error: String(e) }, { status: 500 });
   }
