@@ -7,6 +7,7 @@ import { Attraction } from '@/lib/types';
 import type { SectorRow } from '@/lib/sheets';
 import { t } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
+import NearbyPanel from '@/components/NearbyPanel';
 
 const TourMap = dynamic(() => import('@/components/TourMap'), { ssr: false });
 
@@ -89,6 +90,13 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
         >
           {t(lang as 'ko' | 'en', 'back')}
         </button>
+
+        <div className="absolute bottom-4 right-4 z-50">
+          <NearbyPanel
+            selectedPin={attractions.find((a) => a.id === selectedId)?.center ?? null}
+            lang={lang}
+          />
+        </div>
 
         <div className="h-[45vh] shrink-0">
           <TourMap
