@@ -93,6 +93,7 @@ export default function EventList({ area, lang }: Props) {
       if (filter === 'thisweek') {
         return e.eventstartdate <= weekEndYMD && e.eventenddate >= todayYMD;
       }
+      if (filter === 'all') return true;
       const monthStart = `${year}${filter}01`;
       const monthEnd = `${year}${filter}31`;
       return e.eventstartdate <= monthEnd && e.eventenddate >= monthStart;
@@ -140,6 +141,7 @@ export default function EventList({ area, lang }: Props) {
             }}
           >
             <option value="thisweek">이번주</option>
+            <option value="all">전체</option>
             {MONTHS.map((m, i) => (
               <option key={m} value={m}>{i + 1}월</option>
             ))}
@@ -161,18 +163,11 @@ export default function EventList({ area, lang }: Props) {
           return (
             <button
               key={event.contentid}
-              className="w-full text-left bg-white rounded-2xl shadow-sm overflow-hidden active:bg-stone-50"
+              className="w-full text-left bg-white rounded-2xl shadow-sm px-4 py-3 flex items-start gap-3 active:bg-stone-50"
               onClick={() => openDetail(event)}
             >
-              {event.firstimage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={toHttps(event.firstimage)} alt={event.title}
-                  className="w-full h-36 object-cover" />
-              ) : (
-                <div className="w-full h-24 bg-stone-100 flex items-center justify-center text-3xl text-stone-300">🎪</div>
-              )}
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                   {badge && (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>
                       {badge.label}
@@ -187,6 +182,18 @@ export default function EventList({ area, lang }: Props) {
                   <p className="text-xs text-stone-400 mt-0.5 truncate">{event.addr1}</p>
                 )}
               </div>
+
+              <div
+                className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-stone-100 flex items-center justify-center text-stone-300 text-2xl"
+                style={{ minWidth: 80 }}
+              >
+                {event.firstimage
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={toHttps(event.firstimage)} alt={event.title} style={{ width: 80, height: 80, objectFit: 'cover', display: 'block' }} />
+                  : '🎪'}
+              </div>
+
+              <span className="text-amber-500 text-lg shrink-0 self-center">›</span>
             </button>
           );
         })}

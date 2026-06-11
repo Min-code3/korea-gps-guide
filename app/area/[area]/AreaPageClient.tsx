@@ -7,7 +7,7 @@ import { Attraction, RestaurantPin } from '@/lib/types';
 import type { SectorRow } from '@/lib/sheets';
 import { t } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
-import NearbyPanel from '@/components/NearbyPanel';
+import RestaurantList from '@/components/RestaurantList';
 import EventList from '@/components/EventList';
 
 const TourMap = dynamic(() => import('@/components/TourMap'), { ssr: false });
@@ -39,7 +39,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
   const [restaurantPins, setRestaurantPins] = useState<RestaurantPin[]>([]);
-  const [mode, setMode] = useState<'attractions' | 'events'>('attractions');
+  const [mode, setMode] = useState<'attractions' | 'restaurants' | 'events'>('attractions');
 
   const sortedSectors = useMemo(
     () => [...sectors].sort((a, b) => a.priority - b.priority),
@@ -94,14 +94,6 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
           {t(lang as 'ko' | 'en', 'back')}
         </button>
 
-        <div className="absolute bottom-4 right-4 z-50">
-          <NearbyPanel
-            selectedPin={attractions.find((a) => a.id === selectedId)?.center ?? null}
-            lang={lang}
-            onRestaurantsFound={setRestaurantPins}
-          />
-        </div>
-
         <div className="h-[45vh] shrink-0">
           <TourMap
             attractions={attractions}
@@ -115,20 +107,24 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
           />
         </div>
 
-        {/* 명소 / 행사 모드 탭 */}
+        {/* 명소 / 식당 / 행사 모드 탭 */}
         <div className="px-5 pt-3 pb-1 shrink-0 flex gap-2">
-          <button
-            onClick={() => setMode('attractions')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === 'attractions' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
-          >
-            {lang === 'en' ? 'Attractions' : '명소'}
-          </button>
-          <button
-            onClick={() => setMode('events')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === 'events' ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
-          >
-            {lang === 'en' ? 'Events' : '행사'}
-          </button>
+          {(['attractions', 'restaurants', 'events'] as const).map((m) => {
+            const label = m === 'attractions'
+              ? (lang === 'en' ? 'Attractions' : '명소')
+              : m === 'restaurants'
+              ? (lang === 'en' ? 'Restaurants' : '식당')
+              : (lang === 'en' ? 'Events' : '행사');
+            return (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === m ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* sector tabs */}
@@ -159,6 +155,15 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
               })}
             </div>
           </div>
+        )}
+
+        {/* 식당 리스트 */}
+        {mode === 'restaurants' && (
+          <RestaurantList
+            selectedPin={attractions.find((a) => a.id === selectedId)?.center ?? null}
+            lang={lang}
+            onRestaurantsFound={setRestaurantPins}
+          />
         )}
 
         {/* 행사 리스트 */}
