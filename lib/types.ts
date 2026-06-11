@@ -44,6 +44,13 @@ export interface Tour {
   attractions: Attraction[];
 }
 
+export interface RestaurantPin {
+  contentid: string;
+  title: string;
+  lat: number;
+  lng: number;
+}
+
 export type GuideStatus =
   | 'IDLE'
   | 'A_PLAYING'

@@ -2,16 +2,17 @@
 
 import { useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-import { Attraction } from '@/lib/types';
+import { Attraction, RestaurantPin } from '@/lib/types';
 
 interface TourMapProps {
   attractions: Attraction[];
   center: { lat: number; lng: number };
   defaultZoom: number;
   selectedId: string | null;
-  sectorIds?: string[];   // sector mode: these are all orange
-  isSectorMode?: boolean; // true = highlight sectorIds, false = highlight selectedId only
+  sectorIds?: string[];
+  isSectorMode?: boolean;
   onPinClick: (attractionId: string) => void;
+  restaurantPins?: RestaurantPin[];
 }
 
 const MAP_STYLES = [
@@ -23,7 +24,7 @@ const MAP_STYLES = [
 
 const CIRCLE = 0 as unknown as google.maps.SymbolPath;
 
-export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick }: TourMapProps) {
+export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [] }: TourMapProps) {
   const mapRef = useRef<google.maps.Map | null>(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -60,6 +61,21 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
       }}
       onLoad={(map) => { mapRef.current = map; }}
     >
+      {restaurantPins.map((r) => (
+        <Marker
+          key={`restaurant-${r.contentid}`}
+          position={{ lat: r.lat, lng: r.lng }}
+          icon={{
+            path: CIRCLE,
+            scale: 7,
+            fillColor: '#16a34a',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+          }}
+          title={r.title}
+        />
+      ))}
       {attractions.map((attraction) => {
         const isSingle = !isSectorMode && attraction.id === selectedId;
         const isInSector = isSectorMode && sectorIds.includes(attraction.id);

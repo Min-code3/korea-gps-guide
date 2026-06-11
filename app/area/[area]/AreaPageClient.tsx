@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Attraction } from '@/lib/types';
+import { Attraction, RestaurantPin } from '@/lib/types';
 import type { SectorRow } from '@/lib/sheets';
 import { t } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
@@ -37,6 +37,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   const [isSectorMode, setIsSectorMode] = useState(true);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
+  const [restaurantPins, setRestaurantPins] = useState<RestaurantPin[]>([]);
 
   const sortedSectors = useMemo(
     () => [...sectors].sort((a, b) => a.priority - b.priority),
@@ -95,6 +96,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
           <NearbyPanel
             selectedPin={attractions.find((a) => a.id === selectedId)?.center ?? null}
             lang={lang}
+            onRestaurantsFound={setRestaurantPins}
           />
         </div>
 
@@ -107,6 +109,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             sectorIds={sectorIds}
             isSectorMode={isSectorMode}
             onPinClick={handlePinClick}
+            restaurantPins={restaurantPins}
           />
         </div>
 

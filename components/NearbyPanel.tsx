@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { RestaurantPin } from '@/lib/types';
 
 interface Restaurant {
   contentid: string;
@@ -23,6 +24,7 @@ interface RestaurantDetail {
 interface Props {
   selectedPin: { lat: number; lng: number } | null;
   lang: string;
+  onRestaurantsFound: (pins: RestaurantPin[]) => void;
 }
 
 const RADII = [
@@ -41,7 +43,7 @@ function formatDist(dist: string) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
 }
 
-export default function NearbyPanel({ selectedPin, lang }: Props) {
+export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<'current' | 'pin'>('current');
   const [radius, setRadius] = useState('1000');
@@ -59,6 +61,7 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
     setRestaurants([]);
     setDetailMap({});
     setSearched(false);
+    onRestaurantsFound([]);
 
     let lat: number, lng: number;
 
@@ -91,6 +94,14 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
       const items = data.response?.body?.items?.item ?? [];
       list = Array.isArray(items) ? items : [items];
       setRestaurants(list);
+      onRestaurantsFound(
+        list.map((r) => ({
+          contentid: r.contentid,
+          title: r.title,
+          lat: parseFloat(r.mapy),
+          lng: parseFloat(r.mapx),
+        }))
+      );
     } catch {
       setError(lang === 'en' ? 'Failed to load.' : '식당 정보를 불러오지 못했어요.');
       setLoading(false);
@@ -121,7 +132,7 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
   };
 
   const googleMapsUrl = (r: Restaurant) =>
-    `https://maps.google.com/?q=${r.mapy},${r.mapx}`;
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.title)}&query_ll=${r.mapy},${r.mapx}`;
 
   return (
     <>
