@@ -187,9 +187,6 @@ export default function EventList({ area, lang }: Props) {
                 {event.detail?.playtime && (
                   <p className="text-xs text-stone-500 mt-0.5 truncate">{stripHtml(event.detail.playtime)}</p>
                 )}
-                {event.detail?.overview && (
-                  <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{stripHtml(event.detail.overview)}</p>
-                )}
               </div>
 
               <div
@@ -227,21 +224,19 @@ export default function EventList({ area, lang }: Props) {
               {selected.firstimage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={toHttps(selected.firstimage)} alt={selected.title}
-                  className="w-full h-44 object-cover" />
+                  className="w-full object-contain bg-stone-100" style={{ maxHeight: 240 }} />
               )}
               <div className="px-5 pt-4 flex flex-col gap-0">
                 {(() => {
                   const d = selected.detail ?? {};
                   const rows = [
-                    { label: '기간',   value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
+                    { label: '기간',     value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
                     d.eventplace      && { label: '행사장소', value: d.eventplace },
-                    { label: '주소',   value: selected.addr1 },
+                    { label: '주소',     value: selected.addr1 },
                     d.playtime        && { label: '운영시간', value: stripHtml(d.playtime) },
-                    d.usetimefestival && { label: '요금',    value: d.usetimefestival },
-                    d.tel             && { label: '전화',    value: d.tel },
-                    d.sponsor1        && { label: '주최',    value: d.sponsor1 },
-                    d.sponsor1tel     && { label: '주최 연락', value: d.sponsor1tel },
-                    d.homepage        && { label: '홈페이지', value: d.homepage.replace(/<[^>]+>/g,'').trim() },
+                    d.usetimefestival && { label: '요금',     value: d.usetimefestival },
+                    d.tel             && { label: '전화',     value: d.tel },
+                    d.homepage        && { label: '홈페이지', value: d.homepage.replace(/<[^>]+>/g, '').trim() },
                   ].filter(Boolean) as { label: string; value: string }[];
                   return rows.map(row => (
                     <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
@@ -250,11 +245,6 @@ export default function EventList({ area, lang }: Props) {
                     </div>
                   ));
                 })()}
-                {selected.detail?.overview && (
-                  <p className="text-sm text-stone-600 leading-relaxed py-3 whitespace-pre-line border-t border-stone-100">
-                    {stripHtml(selected.detail.overview)}
-                  </p>
-                )}
               </div>
             </div>
           </div>
