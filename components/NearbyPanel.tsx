@@ -9,6 +9,8 @@ interface Restaurant {
   dist: string;
   tel: string;
   firstimage: string;
+  mapx: string;
+  mapy: string;
 }
 
 interface RestaurantDetail {
@@ -16,10 +18,6 @@ interface RestaurantDetail {
   treatmenu?: string;
   opentimefood?: string;
   restdatefood?: string;
-  chkcreditcardfood?: string;
-  parkingfood?: string;
-  packing?: string;
-  infocenterfood?: string;
 }
 
 interface Props {
@@ -48,16 +46,18 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
   const [mode, setMode] = useState<'current' | 'pin'>('current');
   const [radius, setRadius] = useState('1000');
   const [loading, setLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [detailMap, setDetailMap] = useState<Record<string, RestaurantDetail>>({});
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
-  const [detail, setDetail] = useState<{ restaurant: Restaurant; info: RestaurantDetail } | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [selected, setSelected] = useState<Restaurant | null>(null);
 
   const fetchRestaurants = async () => {
     setLoading(true);
     setError(null);
     setRestaurants([]);
+    setDetailMap({});
     setSearched(false);
 
     let lat: number, lng: number;
@@ -84,32 +84,44 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
       lng = selectedPin.lng;
     }
 
+    let list: Restaurant[] = [];
     try {
       const res = await fetch(`/api/nearby?mapX=${lng}&mapY=${lat}&radius=${radius}&contentTypeId=39`);
       const data = await res.json();
       const items = data.response?.body?.items?.item ?? [];
-      setRestaurants(Array.isArray(items) ? items : [items]);
+      list = Array.isArray(items) ? items : [items];
+      setRestaurants(list);
     } catch {
       setError(lang === 'en' ? 'Failed to load.' : '식당 정보를 불러오지 못했어요.');
+      setLoading(false);
+      return;
     }
 
     setLoading(false);
     setSearched(true);
+
+    // 카드에 대표메뉴 표시용 — 백그라운드에서 상세 batch fetch
+    if (list.length > 0) {
+      setDetailsLoading(true);
+      const results = await Promise.all(
+        list.map(async (r) => {
+          try {
+            const res = await fetch(`/api/restaurant-detail?contentId=${r.contentid}`);
+            const data = await res.json();
+            const info: RestaurantDetail = data.response?.body?.items?.item?.[0] ?? {};
+            return [r.contentid, info] as const;
+          } catch {
+            return [r.contentid, {}] as const;
+          }
+        })
+      );
+      setDetailMap(Object.fromEntries(results));
+      setDetailsLoading(false);
+    }
   };
 
-  const openDetail = async (r: Restaurant) => {
-    setDetailLoading(true);
-    setDetail({ restaurant: r, info: {} });
-    try {
-      const res = await fetch(`/api/restaurant-detail?contentId=${r.contentid}`);
-      const data = await res.json();
-      const info: RestaurantDetail = data.response?.body?.items?.item?.[0] ?? {};
-      setDetail({ restaurant: r, info });
-    } catch {
-      // 세부 정보 없어도 기본 정보는 보여줌
-    }
-    setDetailLoading(false);
-  };
+  const googleMapsUrl = (r: Restaurant) =>
+    `https://maps.google.com/?q=${r.mapy},${r.mapx}`;
 
   return (
     <>
@@ -121,14 +133,14 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
       </button>
 
       {/* 메인 패널 */}
-      {isOpen && !detail && (
+      {isOpen && !selected && (
         <div
           className="fixed inset-0 z-[80] bg-black/40 flex items-end justify-center"
           onClick={() => setIsOpen(false)}
         >
           <div
             className="bg-white rounded-t-2xl w-full max-w-lg flex flex-col"
-            style={{ maxHeight: '78vh' }}
+            style={{ maxHeight: '80vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-stone-100 shrink-0">
@@ -170,7 +182,7 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
                 disabled={loading}
                 className="w-full py-2.5 bg-amber-500 text-white rounded-xl font-medium text-sm disabled:opacity-50"
               >
-                {loading ? '검색 중...' : lang === 'en' ? 'Search' : '검색'}
+                {loading ? (lang === 'en' ? 'Searching...' : '검색 중...') : lang === 'en' ? 'Search' : '검색'}
               </button>
             </div>
 
@@ -181,28 +193,43 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
                   {lang === 'en' ? 'No restaurants found.' : '근처에 등록된 식당이 없어요.'}
                 </p>
               )}
+
               <div className="flex flex-col gap-2.5 pt-1">
-                {restaurants.map((r) => (
-                  <button
-                    key={r.contentid}
-                    className="bg-stone-50 rounded-xl p-3 flex gap-3 text-left w-full active:bg-stone-100"
-                    onClick={() => openDetail(r)}
-                  >
-                    {r.firstimage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={toHttps(r.firstimage)} alt={r.title}
-                        className="w-16 h-16 rounded-lg object-cover shrink-0" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-lg bg-stone-200 shrink-0 flex items-center justify-center text-2xl">🍽</div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-stone-800 text-sm truncate">{r.title}</p>
-                      <p className="text-xs text-stone-400 mt-0.5 truncate">{r.addr1}</p>
-                      <span className="text-xs text-amber-600 font-medium mt-1 inline-block">{formatDist(r.dist)}</span>
-                    </div>
-                    <span className="text-stone-300 self-center">›</span>
-                  </button>
-                ))}
+                {restaurants.map((r) => {
+                  const detail = detailMap[r.contentid];
+                  return (
+                    <button
+                      key={r.contentid}
+                      className="bg-stone-50 rounded-xl overflow-hidden flex text-left w-full active:bg-stone-100"
+                      onClick={() => setSelected(r)}
+                    >
+                      {/* 사진 */}
+                      {r.firstimage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={toHttps(r.firstimage)}
+                          alt={r.title}
+                          className="w-20 h-20 object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 bg-stone-200 shrink-0 flex items-center justify-center text-2xl">🍽</div>
+                      )}
+
+                      {/* 텍스트 */}
+                      <div className="flex-1 min-w-0 px-3 py-2.5">
+                        <p className="font-bold text-stone-800 text-sm truncate">{r.title}</p>
+                        {detailsLoading && !detail ? (
+                          <p className="text-xs text-stone-300 mt-0.5">로딩 중...</p>
+                        ) : detail?.firstmenu ? (
+                          <p className="text-xs text-stone-500 mt-0.5 truncate">{detail.firstmenu}</p>
+                        ) : null}
+                        <p className="text-xs text-amber-600 font-medium mt-1">{formatDist(r.dist)}</p>
+                      </div>
+
+                      <span className="text-stone-300 self-center pr-3">›</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -210,62 +237,57 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
       )}
 
       {/* 세부 정보 팝업 */}
-      {detail && (
+      {selected && (
         <div
           className="fixed inset-0 z-[90] bg-black/40 flex items-end justify-center"
-          onClick={() => setDetail(null)}
+          onClick={() => setSelected(null)}
         >
           <div
             className="bg-white rounded-t-2xl w-full max-w-lg flex flex-col"
-            style={{ maxHeight: '78vh' }}
+            style={{ maxHeight: '80vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-stone-100 shrink-0">
-              <button onClick={() => setDetail(null)} className="text-stone-400 text-sm">← 목록</button>
-              <p className="font-bold text-stone-800 text-sm truncate max-w-[60%]">{detail.restaurant.title}</p>
-              <button onClick={() => { setDetail(null); setIsOpen(false); }} className="text-stone-400 text-2xl leading-none">×</button>
+              <button onClick={() => setSelected(null)} className="text-stone-500 text-sm">← {lang === 'en' ? 'List' : '목록'}</button>
+              <p className="font-bold text-stone-800 text-sm truncate max-w-[60%]">{selected.title}</p>
+              <button onClick={() => { setSelected(null); setIsOpen(false); }} className="text-stone-400 text-2xl leading-none">×</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 pb-10">
-              {detail.restaurant.firstimage && (
+            <div className="flex-1 overflow-y-auto pb-10">
+              {selected.firstimage && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={toHttps(detail.restaurant.firstimage)} alt={detail.restaurant.title}
-                  className="w-full h-40 object-cover rounded-xl mb-4" />
+                <img
+                  src={toHttps(selected.firstimage)}
+                  alt={selected.title}
+                  className="w-full h-44 object-cover"
+                />
               )}
 
-              {detailLoading ? (
-                <p className="text-sm text-stone-400 text-center py-4">불러오는 중...</p>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  {detail.info.firstmenu && (
-                    <Row icon="🍽" label={lang === 'en' ? 'Signature' : '대표메뉴'} value={detail.info.firstmenu} />
-                  )}
-                  {detail.info.treatmenu && (
-                    <Row icon="📋" label={lang === 'en' ? 'Menu' : '메뉴'} value={detail.info.treatmenu} />
-                  )}
-                  {detail.info.opentimefood && (
-                    <Row icon="⏰" label={lang === 'en' ? 'Hours' : '영업시간'} value={detail.info.opentimefood} />
-                  )}
-                  {detail.info.restdatefood && (
-                    <Row icon="📅" label={lang === 'en' ? 'Closed' : '휴무일'} value={detail.info.restdatefood} />
-                  )}
-                  {detail.restaurant.tel && (
-                    <Row icon="📞" label={lang === 'en' ? 'Tel' : '전화'} value={detail.restaurant.tel} />
-                  )}
-                  {detail.info.chkcreditcardfood && (
-                    <Row icon="💳" label={lang === 'en' ? 'Card' : '카드'} value={detail.info.chkcreditcardfood} />
-                  )}
-                  {detail.info.parkingfood && (
-                    <Row icon="🅿️" label={lang === 'en' ? 'Parking' : '주차'} value={detail.info.parkingfood} />
-                  )}
-                  {detail.info.packing && (
-                    <Row icon="📦" label={lang === 'en' ? 'Takeout' : '포장'} value={detail.info.packing} />
-                  )}
-                  <div className="mt-1 pt-2 border-t border-stone-100">
-                    <p className="text-xs text-stone-400">{detail.restaurant.addr1}</p>
-                  </div>
-                </div>
-              )}
+              <div className="px-5 pt-4 flex flex-col gap-0">
+                {(() => {
+                  const info = detailMap[selected.contentid] ?? {};
+                  const rows: { label: string; value: string }[] = [];
+                  if (info.firstmenu) rows.push({ label: lang === 'en' ? 'Signature' : '대표메뉴', value: info.firstmenu });
+                  if (info.treatmenu) rows.push({ label: lang === 'en' ? 'Menu' : '메뉴', value: info.treatmenu });
+                  if (info.opentimefood) rows.push({ label: lang === 'en' ? 'Hours' : '영업시간', value: info.opentimefood });
+                  if (info.restdatefood) rows.push({ label: lang === 'en' ? 'Closed' : '휴무일', value: info.restdatefood });
+                  if (selected.addr1) rows.push({ label: lang === 'en' ? 'Address' : '주소', value: selected.addr1 });
+                  return rows.map((row) => <DetailRow key={row.label} label={row.label} value={row.value} />);
+                })()}
+              </div>
+
+              {/* 구글맵 버튼 */}
+              <div className="px-5 pt-4">
+                <a
+                  href={googleMapsUrl(selected)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-2.5 text-center text-sm font-medium text-stone-600 border border-stone-200 rounded-xl bg-stone-50 active:bg-stone-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {lang === 'en' ? 'View on Google Maps' : '구글맵에서 보기'}
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -274,14 +296,11 @@ export default function NearbyPanel({ selectedPin, lang }: Props) {
   );
 }
 
-function Row({ icon, label, value }: { icon: string; label: string; value: string }) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex gap-2.5 items-start">
-      <span className="text-base w-5 shrink-0">{icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-stone-400">{label}</p>
-        <p className="text-sm text-stone-700 mt-0.5">{value}</p>
-      </div>
+    <div className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
+      <p className="text-xs text-stone-400 w-14 shrink-0 pt-0.5">{label}</p>
+      <p className="text-sm text-stone-700 flex-1">{value}</p>
     </div>
   );
 }
