@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { t, tp, type Lang, type MessageKey } from '@/lib/i18n';
 
 interface EventDetail {
   overview?: string | null;
@@ -22,6 +23,7 @@ interface FestivalItem {
   firstimage: string;
   tel: string;
   detail?: EventDetail;
+  customNote?: string | null;
 }
 
 interface Props {
@@ -61,16 +63,17 @@ function getStatus(start: string, end: string, todayYMD: string) {
   return daysLeft <= 3 ? 'ending' : 'active';
 }
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  active:   { label: '진행중',   cls: 'bg-green-100 text-green-700' },
-  soon:     { label: '곧 시작',  cls: 'bg-amber-100 text-amber-700' },
-  ending:   { label: '마감임박', cls: 'bg-red-100 text-red-600' },
-  upcoming: { label: 'D-예정',   cls: 'bg-stone-100 text-stone-500' },
+const STATUS_BADGE_KEY: Record<string, { labelKey: MessageKey; cls: string }> = {
+  active:   { labelKey: 'event.badge.active',   cls: 'bg-green-100 text-green-700' },
+  soon:     { labelKey: 'event.badge.soon',      cls: 'bg-amber-100 text-amber-700' },
+  ending:   { labelKey: 'event.badge.ending',    cls: 'bg-red-100 text-red-600' },
+  upcoming: { labelKey: 'event.badge.upcoming',  cls: 'bg-stone-100 text-stone-500' },
 };
 
 const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
 
 export default function EventList({ area, lang }: Props) {
+  const l = lang as Lang;
   const [events, setEvents] = useState<FestivalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [supported, setSupported] = useState(true);
@@ -91,7 +94,7 @@ export default function EventList({ area, lang }: Props) {
       })
       .catch(() => setSupported(false))
       .finally(() => setLoading(false));
-  }, [area]);
+  }, [area, lang]);
 
   const filtered = useMemo(() => {
     const weekEnd = new Date(today);
@@ -110,28 +113,25 @@ export default function EventList({ area, lang }: Props) {
     });
   }, [events, filter, today, todayYMD, year]);
 
-  const openDetail = (event: FestivalItem) => {
-    setSelected(event);
-  };
+  const filterLabel = filter === 'thisweek'
+    ? t(l, 'event.filter.thisweek')
+    : filter === 'all'
+    ? t(l, 'event.filter.all')
+    : tp(l, 'event.filter.monthLabel', { n: parseInt(filter) });
 
-  const filterLabel = filter === 'thisweek' ? (lang === 'en' ? 'this week' : '이번주')
-    : filter === 'all' ? (lang === 'en' ? 'any period' : '전체 기간')
-    : (lang === 'en' ? `month ${parseInt(filter)}` : `${parseInt(filter)}월`);
-  const emptyMsg = lang === 'en'
-    ? `No events for ${filterLabel}.`
-    : `${filterLabel}에 열리는 행사가 없어요.`;
+  const emptyMsg = tp(l, 'event.empty', { filter: filterLabel });
 
   if (!supported) {
     return (
       <div className="flex-1 flex items-center justify-center px-5">
-        <p className="text-sm text-stone-400 text-center">이 지역은 아직 행사 정보를 지원하지 않아요.</p>
+        <p className="text-sm text-stone-400 text-center">{t(l, 'event.unsupported')}</p>
       </div>
     );
   }
 
   return (
     <>
-      {/* 드롭다운 */}
+      {/* 필터 드롭다운 */}
       <div className="px-5 pt-2 pb-2 shrink-0">
         <div className="relative">
           <select
@@ -145,11 +145,10 @@ export default function EventList({ area, lang }: Props) {
               backgroundPosition: 'right 14px center',
             }}
           >
-            {/* 하드코딩 한국어 — 언어 추가 시 여기 수정 필요 */}
-            <option value="thisweek">이번주</option>
-            <option value="all">전체</option>
+            <option value="thisweek">{t(l, 'event.filter.thisweek')}</option>
+            <option value="all">{t(l, 'event.filter.allOption')}</option>
             {MONTHS.map((m, i) => (
-              <option key={m} value={m}>{i + 1}월</option>
+              <option key={m} value={m}>{tp(l, 'event.filter.month', { n: i + 1 })}</option>
             ))}
           </select>
         </div>
@@ -158,25 +157,25 @@ export default function EventList({ area, lang }: Props) {
       {/* 리스트 */}
       <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
         {loading && (
-          <p className="text-sm text-stone-400 text-center py-8">불러오는 중...</p>
+          <p className="text-sm text-stone-400 text-center py-8">{t(l, 'event.loading')}</p>
         )}
         {!loading && filtered.length === 0 && (
           <p className="text-sm text-stone-400 text-center py-8">{emptyMsg}</p>
         )}
         {filtered.map(event => {
           const status = getStatus(event.eventstartdate, event.eventenddate, todayYMD);
-          const badge = STATUS_BADGE[status];
+          const badge = STATUS_BADGE_KEY[status];
           return (
             <button
               key={event.contentid}
               className="w-full text-left bg-white rounded-2xl shadow-sm px-4 py-3 flex items-start gap-3 active:bg-stone-50"
-              onClick={() => openDetail(event)}
+              onClick={() => setSelected(event)}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                   {badge && (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>
-                      {badge.label}
+                      {t(l, badge.labelKey)}
                     </span>
                   )}
                   <span className="text-xs text-stone-400">
@@ -186,6 +185,9 @@ export default function EventList({ area, lang }: Props) {
                 <p className="font-bold text-stone-800 text-sm">{event.title}</p>
                 {event.detail?.playtime && (
                   <p className="text-xs text-stone-500 mt-0.5 truncate">{stripHtml(event.detail.playtime)}</p>
+                )}
+                {event.customNote && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">{event.customNote}</p>
                 )}
               </div>
 
@@ -230,13 +232,13 @@ export default function EventList({ area, lang }: Props) {
                 {(() => {
                   const d = selected.detail ?? {};
                   const rows = [
-                    { label: '기간',     value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
-                    d.eventplace      && { label: '행사장소', value: d.eventplace },
-                    { label: '주소',     value: selected.addr1 },
-                    d.playtime        && { label: '운영시간', value: stripHtml(d.playtime) },
-                    d.usetimefestival && { label: '요금',     value: d.usetimefestival },
-                    d.tel             && { label: '전화',     value: d.tel },
-                    d.homepage        && { label: '홈페이지', value: d.homepage.replace(/<[^>]+>/g, '').trim() },
+                    { label: t(l, 'event.field.period'),  value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
+                    d.eventplace      && { label: t(l, 'event.field.venue'),   value: d.eventplace },
+                    { label: t(l, 'event.field.address'), value: selected.addr1 },
+                    d.playtime        && { label: t(l, 'event.field.hours'),   value: stripHtml(d.playtime) },
+                    d.usetimefestival && { label: t(l, 'event.field.fee'),     value: d.usetimefestival },
+                    d.tel             && { label: t(l, 'event.field.tel'),     value: d.tel },
+                    d.homepage        && { label: t(l, 'event.field.website'), value: d.homepage.replace(/<[^>]+>/g, '').trim() },
                   ].filter(Boolean) as { label: string; value: string }[];
                   return rows.map(row => (
                     <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
@@ -245,6 +247,9 @@ export default function EventList({ area, lang }: Props) {
                     </div>
                   ));
                 })()}
+                {selected.customNote && (
+                  <p className="text-xs text-amber-600 font-medium pt-3">{selected.customNote}</p>
+                )}
               </div>
             </div>
           </div>

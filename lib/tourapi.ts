@@ -48,20 +48,43 @@ export interface TourAPIAttraction {
 
 async function fetchJSON(base: string, endpoint: string, params: Record<string, string>) {
   const qs = new URLSearchParams({ serviceKey: KEY, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide', _type: 'json', ...params });
-  const res = await fetch(`${base}/${endpoint}?${qs}`, {
-    next: { revalidate: 3600 },
-  });
+  const res = await fetch(`${base}/${endpoint}?${qs}`, { next: { revalidate: 3600 } });
   const text = await res.text();
+  let data: ReturnType<typeof JSON.parse>;
   try {
-    return JSON.parse(text);
+    data = JSON.parse(text);
   } catch {
     throw new Error(`TourAPI error (${endpoint}): ${text.slice(0, 200)}`);
   }
+  const code = data?.response?.header?.resultCode;
+  if (code && code !== '0000') {
+    throw new Error(`TourAPI ${endpoint} resultCode ${code}: ${data?.response?.header?.resultMsg}`);
+  }
+  return data;
 }
 
+// 목록 뷰용 — detailCommon2만 호출 (name/image/coords만 필요)
+export async function getAttractionBasicFromAPI(contentId: string): Promise<TourAPIAttraction> {
+
+  const common = await fetchJSON(BASE, 'detailCommon2', { contentId, overviewYN: 'Y' });
+  const c: TourAPIBasic = common.response?.body?.items?.item?.[0];
+  if (!c) throw new Error(`TourAPI: contentId ${contentId} not found`);
+
+  return {
+    name: c.title,
+    description: stripHtml(c.overview ?? ''),
+    center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
+    hours: '',
+    admission: '',
+    image: c.firstimage ?? '',
+  };
+}
+
+// 가이드 상세용 — 영업시간/입장료까지 포함
 export async function getAttractionFromAPI(contentId: string, contentTypeId = '12'): Promise<TourAPIAttraction> {
+
   const [common, intro, info] = await Promise.all([
-    fetchJSON(BASE, 'detailCommon2', { contentId }),
+    fetchJSON(BASE, 'detailCommon2', { contentId, overviewYN: 'Y' }),
     fetchJSON(BASE, 'detailIntro2', { contentId, contentTypeId }),
     fetchJSON(BASE, 'detailInfo2', { contentId, contentTypeId }),
   ]);
@@ -84,8 +107,9 @@ export async function getAttractionFromAPI(contentId: string, contentTypeId = '1
 }
 
 export async function getAttractionFromEngAPI(contentId: string): Promise<TourAPIAttraction> {
+
   const [common, intro] = await Promise.all([
-    fetchJSON(ENG_BASE, 'detailCommon2', { contentId }),
+    fetchJSON(ENG_BASE, 'detailCommon2', { contentId, overviewYN: 'Y' }),
     fetchJSON(ENG_BASE, 'detailIntro2', { contentId, contentTypeId: '76' }),
   ]);
 
@@ -104,6 +128,7 @@ export async function getAttractionFromEngAPI(contentId: string): Promise<TourAP
 }
 
 export async function getAttractionImages(contentId: string): Promise<string[]> {
+
   const data = await fetchJSON(BASE, 'detailImage2', { contentId, imageYN: 'Y', numOfRows: '20' });
   const items = data.response?.body?.items?.item ?? [];
   const arr = Array.isArray(items) ? items : [items];

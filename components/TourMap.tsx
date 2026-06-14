@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { Attraction, RestaurantPin } from '@/lib/types';
+import { t, type Lang } from '@/lib/i18n';
 
 interface TourMapProps {
   attractions: Attraction[];
@@ -13,6 +14,9 @@ interface TourMapProps {
   isSectorMode?: boolean;
   onPinClick: (attractionId: string) => void;
   restaurantPins?: RestaurantPin[];
+  selectedRestaurantId?: string | null;
+  onRestaurantPinClick?: (contentid: string) => void;
+  lang?: string;
 }
 
 const MAP_STYLES = [
@@ -24,7 +28,8 @@ const MAP_STYLES = [
 
 const CIRCLE = 0 as unknown as google.maps.SymbolPath;
 
-export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [] }: TourMapProps) {
+export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [], selectedRestaurantId = null, onRestaurantPinClick, lang = 'ko' }: TourMapProps) {
+  const l = lang as Lang;
   const mapRef = useRef<google.maps.Map | null>(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -41,7 +46,7 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
   }, [selectedId, attractions]);
 
   if (loadError) {
-    return <div className="w-full h-full bg-stone-100 flex items-center justify-center text-stone-400 text-sm p-4 text-center">지도 로드 실패: {loadError.message}</div>;
+    return <div className="w-full h-full bg-stone-100 flex items-center justify-center text-stone-400 text-sm p-4 text-center">{t(l, 'map.loadError')}{loadError.message}</div>;
   }
 
   if (!isLoaded) {
@@ -61,21 +66,25 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
       }}
       onLoad={(map) => { mapRef.current = map; }}
     >
-      {restaurantPins.map((r) => (
-        <Marker
-          key={`restaurant-${r.contentid}`}
-          position={{ lat: r.lat, lng: r.lng }}
-          icon={{
-            path: CIRCLE,
-            scale: 7,
-            fillColor: '#16a34a',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-          }}
-          title={r.title}
-        />
-      ))}
+      {restaurantPins.map((r) => {
+        const isSelected = r.contentid === selectedRestaurantId;
+        return (
+          <Marker
+            key={`restaurant-${r.contentid}`}
+            position={{ lat: r.lat, lng: r.lng }}
+            icon={{
+              path: CIRCLE,
+              scale: isSelected ? 10 : 7,
+              fillColor: isSelected ? '#f97316' : '#16a34a',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
+            title={r.title}
+            onClick={() => onRestaurantPinClick?.(r.contentid)}
+          />
+        );
+      })}
       {attractions.map((attraction) => {
         const isSingle = !isSectorMode && attraction.id === selectedId;
         const isInSector = isSectorMode && sectorIds.includes(attraction.id);

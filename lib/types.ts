@@ -19,6 +19,7 @@ export interface Pin {
 
 export interface Attraction {
   id: string;
+  contentId?: string; // kor_content_id — gallery lazy load에 사용
   name: string;
   sector?: string;
   description?: string;

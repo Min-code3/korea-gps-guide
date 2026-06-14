@@ -1,6 +1,6 @@
 import { Attraction } from '@/lib/types';
 import { getAreaRows, getAttractionRows, getPinpointRows, AreaRow } from '@/lib/sheets';
-import { getAttractionFromAPI, getAttractionFromEngAPI, getAttractionImages } from '@/lib/tourapi';
+import { getAttractionBasicFromAPI, getAttractionFromAPI, getAttractionFromEngAPI, getAttractionImages } from '@/lib/tourapi';
 
 function toHttps(url: string) {
   return url.replace(/^http:\/\//i, 'https://');
@@ -37,6 +37,7 @@ function buildAttraction(
 
   return {
     id: row.id,
+    contentId: row.korContentId || undefined,
     name: apiData.name,
     sector: row.sector || undefined,
     description: apiData.description,
@@ -56,31 +57,38 @@ const FALLBACK_API: Awaited<ReturnType<typeof getAttractionFromAPI>> = {
   name: '', description: '', center: { lat: 0, lng: 0 }, hours: '', admission: '', image: '',
 };
 
-async function fetchAPIData(row: { korContentId: string; engContentId: string; name: string }, lang: Lang) {
+async function fetchAPIData(
+  row: { korContentId: string; engContentId: string; name: string },
+  lang: Lang,
+  light = false,
+) {
   const fallback = { ...FALLBACK_API, name: row.name };
+  const getKorAPI = light ? getAttractionBasicFromAPI : getAttractionFromAPI;
 
   if (lang === 'ko') {
     if (!row.korContentId) return { apiData: fallback, images: [] };
     try {
-      const [apiData, images] = await Promise.all([
-        getAttractionFromAPI(row.korContentId),
-        getAttractionImages(row.korContentId),
-      ]);
-      return { apiData, images };
+      const apiData = await getKorAPI(row.korContentId);
+      return { apiData, images: apiData.image ? [toHttps(apiData.image)] : [] };
     } catch {
       return { apiData: fallback, images: [] };
     }
   }
 
-  const engId = row.engContentId || row.korContentId;
-  if (!engId) return { apiData: fallback, images: [] };
+  // eng_contentId 없으면 kor_contentId로 좌표, 대표이미지 조회
+  if (!row.engContentId) {
+    if (!row.korContentId) return { apiData: fallback, images: [] };
+    try {
+      const apiData = await getKorAPI(row.korContentId);
+      return { apiData, images: apiData.image ? [toHttps(apiData.image)] : [] };
+    } catch {
+      return { apiData: fallback, images: [] };
+    }
+  }
 
   try {
-    const [engData, images] = await Promise.all([
-      getAttractionFromEngAPI(engId),
-      row.korContentId ? getAttractionImages(row.korContentId) : Promise.resolve([]),
-    ]);
-    return { apiData: engData, images };
+    const engData = await getAttractionFromEngAPI(row.engContentId);
+    return { apiData: engData, images: engData.image ? [toHttps(engData.image)] : [] };
   } catch {
     return { apiData: fallback, images: [] };
   }
@@ -137,7 +145,7 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
 
   return Promise.all(
     rows.map(async (row) => {
-      const { apiData, images } = await fetchAPIData(row, lang);
+      const { apiData, images } = await fetchAPIData(row, lang, true);
       return buildAttraction(row, pinpoints, apiData, images);
     }),
   );

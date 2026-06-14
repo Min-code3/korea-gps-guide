@@ -13,6 +13,9 @@ export default async function HomePage({
     getAreas(),
     getAreaCoverImages(),
   ]);
+  const eventAreas = areas
+    .filter((a) => a.showEvents)
+    .sort((a, b) => a.eventOrder - b.eventOrder);
 
   return (
     <main className="min-h-dvh bg-stone-50 px-5 pt-14 pb-10">
@@ -23,7 +26,7 @@ export default async function HomePage({
         </div>
         <LangToggle lang={lang as 'ko' | 'en'} />
       </div>
-      <HomePageClient areas={areas} coverImages={coverImages} lang={lang} />
+      <HomePageClient areas={areas} eventAreas={eventAreas} coverImages={coverImages} lang={lang} />
     </main>
   );
 }

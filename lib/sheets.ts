@@ -30,12 +30,14 @@ async function getRows(sheetName: string): Promise<string[][]> {
 }
 
 // ── Sheet: area ─────────────────────────────────────────────────────
-// nation | area | dec | area_en
+// nation | area | dec | area_en | 이동시간 | show_events | event_order
 export interface AreaRow {
   nation: string;
   area: string;
   description: string;
   areaEn: string;
+  showEvents: boolean;
+  eventOrder: number;
 }
 
 export async function getAreaRows(): Promise<AreaRow[]> {
@@ -47,6 +49,25 @@ export async function getAreaRows(): Promise<AreaRow[]> {
       area: r[1] ?? '',
       description: r[2] ?? '',
       areaEn: r[3] ?? '',
+      showEvents: r[5] === 'TRUE',
+      eventOrder: parseInt(r[6]) || 999,
+    }));
+}
+
+// ── Sheet: event_overrides ───────────────────────────────────────────
+// id | area | name | contentId | note
+export interface EventOverrideRow {
+  contentId: string;
+  note: string;
+}
+
+export async function getEventOverrides(): Promise<EventOverrideRow[]> {
+  const rows = await getRows('event_overrides');
+  return rows
+    .filter((r) => r[3])
+    .map((r) => ({
+      contentId: r[3] ?? '',
+      note: r[4] ?? '',
     }));
 }
 
