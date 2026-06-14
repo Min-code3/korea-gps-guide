@@ -30,9 +30,10 @@ async function getRows(sheetName: string): Promise<string[][]> {
 }
 
 // ── Sheet: area ─────────────────────────────────────────────────────
-// nation | area | dec | area_en | 이동시간 | show_events | event_order
+// nation | nation_en | area | dec | area_en | 이동시간 | show_events | event_order
 export interface AreaRow {
   nation: string;
+  nationEn: string;
   area: string;
   description: string;
   areaEn: string;
@@ -43,14 +44,15 @@ export interface AreaRow {
 export async function getAreaRows(): Promise<AreaRow[]> {
   const rows = await getRows('area');
   return rows
-    .filter((r) => r[1])
+    .filter((r) => r[2])
     .map((r) => ({
       nation: r[0] ?? '',
-      area: r[1] ?? '',
-      description: r[2] ?? '',
-      areaEn: r[3] ?? '',
-      showEvents: r[5] === 'TRUE',
-      eventOrder: parseInt(r[6]) || 999,
+      nationEn: r[1] ?? '',
+      area: r[2] ?? '',
+      description: r[3] ?? '',
+      areaEn: r[4] ?? '',
+      showEvents: r[6] === 'TRUE',
+      eventOrder: parseInt(r[7]) || 999,
     }));
 }
 
@@ -72,7 +74,7 @@ export async function getEventOverrides(): Promise<EventOverrideRow[]> {
 }
 
 // ── Sheet: attraction ───────────────────────────────────────────────
-// id | area | name | sector | kor_content_id | eng_content_id | admission | defaultZoom | priority | star | tag_csv | tag_en | photo
+// id | area | name | sector | kor_content_id | eng_content_id | lat | lng | admission | defaultZoom | priority | star | tag_csv | tag_en | photo
 export interface AttractionRow {
   id: string;
   area: string;
@@ -80,6 +82,8 @@ export interface AttractionRow {
   sector: string;
   korContentId: string;
   engContentId: string;
+  lat: number;
+  lng: number;
   admission: string;
   defaultZoom: number;
   priority: number;
@@ -98,11 +102,13 @@ export async function getAttractionRows(): Promise<AttractionRow[]> {
       sector: r[3] ?? '',
       korContentId: r[4] ?? '',
       engContentId: r[5] ?? '',
-      admission: r[6] ?? '',
-      defaultZoom: parseInt(r[7]) || 16,
-      priority: parseInt(r[8]) || 0,
-      star: r[9] ?? '',
-      tags: r[10] ? r[10].split(',').map((t) => t.trim()).filter(Boolean) : [],
+      lat: parseFloat(r[6]) || 0,
+      lng: parseFloat(r[7]) || 0,
+      admission: r[8] ?? '',
+      defaultZoom: parseInt(r[9]) || 16,
+      priority: parseInt(r[10]) || 0,
+      star: r[11] ?? '',
+      tags: r[12] ? r[12].split(',').map((t) => t.trim()).filter(Boolean) : [],
     }));
 }
 

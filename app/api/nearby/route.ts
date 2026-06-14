@@ -34,11 +34,18 @@ export async function GET(req: NextRequest) {
     const data = JSON.parse(await res.text());
 
     if (lang === 'en') {
-      const items: { title?: string; [k: string]: unknown }[] = data?.response?.body?.items?.item ?? [];
+      const items: { title?: string; addr1?: string; [k: string]: unknown }[] = data?.response?.body?.items?.item ?? [];
       if (items.length) {
         const titles = items.map(r => r.title ?? '');
-        const translated = await translateBatch(titles);
-        items.forEach((r, i) => { r.title = translated[i] || r.title; });
+        const addrs  = items.map(r => r.addr1  ?? '');
+        const [tTitles, tAddrs] = await Promise.all([
+          translateBatch(titles),
+          translateBatch(addrs),
+        ]);
+        items.forEach((r, i) => {
+          r.title = tTitles[i] || r.title;
+          r.addr1 = tAddrs[i]  || r.addr1;
+        });
       }
     }
 

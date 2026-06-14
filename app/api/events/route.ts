@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     const missingOverrides = overrides.filter(o => !activeIds.has(o.contentId));
     const extraEvents: EventRaw[] = (await Promise.all(
       missingOverrides.map(async (o) => {
-        const p  = new URLSearchParams({ serviceKey: KEY, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide', _type: 'json', contentId: o.contentId, overviewYN: 'Y' });
+        const p  = new URLSearchParams({ serviceKey: KEY, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide', _type: 'json', contentId: o.contentId });
         const pi = new URLSearchParams({ ...Object.fromEntries(p), contentTypeId: '15' });
         const [cText, dText] = await Promise.all([
           fetch(`${BASE}/detailCommon2?${p}`).then(r => r.text()).catch(() => '{}'),

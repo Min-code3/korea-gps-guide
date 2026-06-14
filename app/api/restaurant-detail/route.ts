@@ -20,11 +20,13 @@ export async function GET(req: NextRequest) {
     const data = JSON.parse(await res.text());
 
     if (lang === 'en') {
-      const item: { firstmenu?: string; treatmenu?: string; [k: string]: unknown } =
+      const item: { firstmenu?: string; treatmenu?: string; opentimefood?: string; restdatefood?: string; [k: string]: unknown } =
         data?.response?.body?.items?.item?.[0] ?? {};
-      const [first, treat] = await translateBatch([item.firstmenu, item.treatmenu]);
-      if (first) item.firstmenu = first;
-      if (treat) item.treatmenu = treat;
+      const [first, treat, hours, closed] = await translateBatch([item.firstmenu, item.treatmenu, item.opentimefood, item.restdatefood]);
+      if (first)  item.firstmenu     = first;
+      if (treat)  item.treatmenu     = treat;
+      if (hours)  item.opentimefood  = hours;
+      if (closed) item.restdatefood  = closed;
     }
 
     return NextResponse.json(data);

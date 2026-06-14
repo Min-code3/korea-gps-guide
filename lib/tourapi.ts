@@ -66,7 +66,7 @@ async function fetchJSON(base: string, endpoint: string, params: Record<string, 
 // 목록 뷰용 — detailCommon2만 호출 (name/image/coords만 필요)
 export async function getAttractionBasicFromAPI(contentId: string): Promise<TourAPIAttraction> {
 
-  const common = await fetchJSON(BASE, 'detailCommon2', { contentId, overviewYN: 'Y' });
+  const common = await fetchJSON(BASE, 'detailCommon2', { contentId });
   const c: TourAPIBasic = common.response?.body?.items?.item?.[0];
   if (!c) throw new Error(`TourAPI: contentId ${contentId} not found`);
 
@@ -84,7 +84,7 @@ export async function getAttractionBasicFromAPI(contentId: string): Promise<Tour
 export async function getAttractionFromAPI(contentId: string, contentTypeId = '12'): Promise<TourAPIAttraction> {
 
   const [common, intro, info] = await Promise.all([
-    fetchJSON(BASE, 'detailCommon2', { contentId, overviewYN: 'Y' }),
+    fetchJSON(BASE, 'detailCommon2', { contentId }),
     fetchJSON(BASE, 'detailIntro2', { contentId, contentTypeId }),
     fetchJSON(BASE, 'detailInfo2', { contentId, contentTypeId }),
   ]);
@@ -109,7 +109,7 @@ export async function getAttractionFromAPI(contentId: string, contentTypeId = '1
 export async function getAttractionFromEngAPI(contentId: string): Promise<TourAPIAttraction> {
 
   const [common, intro] = await Promise.all([
-    fetchJSON(ENG_BASE, 'detailCommon2', { contentId, overviewYN: 'Y' }),
+    fetchJSON(ENG_BASE, 'detailCommon2', { contentId }),
     fetchJSON(ENG_BASE, 'detailIntro2', { contentId, contentTypeId: '76' }),
   ]);
 

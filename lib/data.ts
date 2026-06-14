@@ -13,6 +13,7 @@ function buildAttraction(
   pinpoints: Awaited<ReturnType<typeof getPinpointRows>>,
   apiData: Awaited<ReturnType<typeof getAttractionFromAPI>>,
   images: string[],
+  sheetCenter?: { lat: number; lng: number },
 ): Attraction {
   const myPins = pinpoints.filter((p) => p.attractionName === row.name);
 
@@ -35,13 +36,16 @@ function buildAttraction(
       bBlock: p.audioSrc ? { id: p.id + '-b', src: p.audioSrc, title: p.audioTitle || undefined } : undefined,
     }));
 
+  // 시트 좌표 우선, 없으면 TourAPI 좌표 사용
+  const center = sheetCenter ?? apiData.center;
+
   return {
     id: row.id,
     contentId: row.korContentId || undefined,
-    name: apiData.name,
+    name: apiData.name || row.name,
     sector: row.sector || undefined,
     description: apiData.description,
-    center: apiData.center,
+    center,
     hours: apiData.hours,
     admission: row.admission || apiData.admission,
     defaultZoom: row.defaultZoom,
@@ -70,7 +74,8 @@ async function fetchAPIData(
     try {
       const apiData = await getKorAPI(row.korContentId);
       return { apiData, images: apiData.image ? [toHttps(apiData.image)] : [] };
-    } catch {
+    } catch (e) {
+      console.error(`[TourAPI] ${row.name} (${row.korContentId}) ko:`, e);
       return { apiData: fallback, images: [] };
     }
   }
@@ -81,7 +86,8 @@ async function fetchAPIData(
     try {
       const apiData = await getKorAPI(row.korContentId);
       return { apiData, images: apiData.image ? [toHttps(apiData.image)] : [] };
-    } catch {
+    } catch (e) {
+      console.error(`[TourAPI] ${row.name} (${row.korContentId}) ko-fallback:`, e);
       return { apiData: fallback, images: [] };
     }
   }
@@ -89,7 +95,8 @@ async function fetchAPIData(
   try {
     const engData = await getAttractionFromEngAPI(row.engContentId);
     return { apiData: engData, images: engData.image ? [toHttps(engData.image)] : [] };
-  } catch {
+  } catch (e) {
+    console.error(`[TourAPI] ${row.name} (${row.engContentId}) en:`, e);
     return { apiData: fallback, images: [] };
   }
 }
@@ -145,8 +152,9 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
 
   return Promise.all(
     rows.map(async (row) => {
+      const sheetCenter = row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined;
       const { apiData, images } = await fetchAPIData(row, lang, true);
-      return buildAttraction(row, pinpoints, apiData, images);
+      return buildAttraction(row, pinpoints, apiData, images, sheetCenter);
     }),
   );
 }
@@ -160,6 +168,7 @@ export async function getAttractionById(id: string, lang: Lang = 'ko'): Promise<
   const row = attractionRows.find((r) => r.id === id);
   if (!row) return null;
 
+  const sheetCenter = row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined;
   const { apiData, images } = await fetchAPIData(row, lang);
-  return buildAttraction(row, pinpoints, apiData, images);
+  return buildAttraction(row, pinpoints, apiData, images, sheetCenter);
 }

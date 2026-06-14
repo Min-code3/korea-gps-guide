@@ -73,8 +73,8 @@ export default function HomePageClient({ areas, eventAreas, coverImages, lang }:
                   href={`/area/${encodeURIComponent(area.area)}?lang=${lang}`}
                   className="flex-1 min-w-0 px-5 py-5 active:bg-stone-50 transition-colors"
                 >
-                  <p className="text-xs text-amber-600 uppercase tracking-widest font-medium mb-1">{area.nation}</p>
-                  <p className="text-base font-bold text-stone-800">{area.area}</p>
+                  <p className="text-xs text-amber-600 uppercase tracking-widest font-medium mb-1">{lang === 'en' ? (area.nationEn || area.nation) : area.nation}</p>
+                  <p className="text-base font-bold text-stone-800">{lang === 'en' ? (area.areaEn || area.area) : area.area}</p>
                   {area.description && <p className="text-sm text-stone-400 mt-1">{area.description}</p>}
                 </Link>
 
