@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { Attraction, RestaurantPin } from '@/lib/types';
 import { t, type Lang } from '@/lib/i18n';
@@ -17,6 +17,7 @@ interface TourMapProps {
   selectedRestaurantId?: string | null;
   onRestaurantPinClick?: (contentid: string) => void;
   lang?: string;
+  showOrder?: boolean;
 }
 
 const MAP_STYLES = [
@@ -28,7 +29,7 @@ const MAP_STYLES = [
 
 const CIRCLE = 0 as unknown as google.maps.SymbolPath;
 
-export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [], selectedRestaurantId = null, onRestaurantPinClick, lang = 'ko' }: TourMapProps) {
+export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [], selectedRestaurantId = null, onRestaurantPinClick, lang = 'ko', showOrder = false }: TourMapProps) {
   const l = lang as Lang;
   const mapRef = useRef<google.maps.Map | null>(null);
 
@@ -89,20 +90,42 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
         const isSingle = !isSectorMode && attraction.id === selectedId;
         const isInSector = isSectorMode && sectorIds.includes(attraction.id);
         const isOrange = isSingle || isInSector;
+        const hasOrder = showOrder && !!attraction.attractionOrder;
         return (
-          <Marker
-            key={attraction.id}
-            position={attraction.center}
-            icon={{
-              path: CIRCLE,
-              scale: isSingle ? 11 : 8,
-              fillColor: isOrange ? '#f97316' : '#1d4ed8',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2,
-            }}
-            onClick={() => onPinClick(attraction.id)}
-          />
+          <React.Fragment key={attraction.id}>
+            <Marker
+              position={attraction.center}
+              icon={{
+                path: CIRCLE,
+                scale: isSingle ? 11 : hasOrder ? 11 : 8,
+                fillColor: isOrange ? '#f97316' : '#1d4ed8',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 2,
+              }}
+              label={hasOrder ? {
+                text: String(attraction.attractionOrder),
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 'bold',
+              } : undefined}
+              onClick={() => onPinClick(attraction.id)}
+            />
+            {attraction.center2 && (
+              <Marker
+                position={attraction.center2}
+                icon={{
+                  path: CIRCLE,
+                  scale: isSingle ? 11 : 8,
+                  fillColor: isOrange ? '#f97316' : '#1d4ed8',
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2,
+                }}
+                onClick={() => onPinClick(attraction.id)}
+              />
+            )}
+          </React.Fragment>
         );
       })}
     </GoogleMap>
