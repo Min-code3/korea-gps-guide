@@ -21,12 +21,14 @@ export interface Attraction {
   id: string;
   contentId?: string; // kor_content_id — gallery lazy load에 사용
   name: string;
-  sector?: string;
+  sectors?: string[];
+  attractionOrder?: number;
   description?: string;
   guideTitle?: string; // shown in audio guide player — falls back to name if not set
   admission?: string; // e.g. "Free" or "₩3,000"
   hours?: string;     // e.g. "9:00 ~ 22:00"
   center: { lat: number; lng: number };
+  center2?: { lat: number; lng: number };
   defaultZoom: number;
   star?: string;
   tags?: string[];
@@ -43,6 +45,20 @@ export interface Tour {
   center: { lat: number; lng: number };
   defaultZoom: number;
   attractions: Attraction[];
+}
+
+export interface LocalRestaurant {
+  id: string;
+  contentid?: string;
+  name: string;
+  addr?: string;
+  center?: { lat: number; lng: number };
+  image?: string;
+  tel?: string;
+  signature?: string;
+  menu?: string;
+  hours?: string;
+  closed?: string;
 }
 
 export interface RestaurantPin {

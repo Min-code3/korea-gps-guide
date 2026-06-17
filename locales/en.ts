@@ -13,6 +13,8 @@ const en = {
 
   // ── Main tabs ────────────────────────────────────────────────────────────
   'tab.attractions': 'Attractions',
+  'tab.highlights':  'Top Picks',
+  'tab.sector':      'Sector',
   'tab.events':      'Events',
   'tab.restaurants': 'Restaurants',
   'tab.all':         'All',
@@ -64,6 +66,9 @@ const en = {
   'restaurant.field.hours':      'Hours',
   'restaurant.field.closed':     'Closed',
   'restaurant.field.address':    'Address',
+  'restaurant.field.tel':        'Tel',
+  'restaurant.nearby':           'Nearby',
+  'restaurant.local':            'Local Picks',
 
   // ── Gallery ───────────────────────────────────────────────────────────────
   'gallery.noPhotos': 'No photos',

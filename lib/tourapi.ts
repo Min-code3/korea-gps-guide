@@ -25,6 +25,8 @@ interface TourAPIBasic {
   mapy: string;
   mapx: string;
   firstimage: string;
+  addr1?: string;
+  tel?: string;
 }
 
 interface TourAPIIntro {
@@ -63,19 +65,43 @@ async function fetchJSON(base: string, endpoint: string, params: Record<string, 
   return data;
 }
 
-// 목록 뷰용 — detailCommon2만 호출 (name/image/coords만 필요)
+function pickKorAdmission(items: TourAPIInfo[]): string {
+  const fields = ['입장료', '시설이용료'];
+  for (const f of fields) {
+    const hit = items.find((x) => x.infoname === f);
+    if (hit?.infotext) return stripHtml(hit.infotext);
+  }
+  return '';
+}
+
+function pickEngAdmission(items: TourAPIInfo[]): string {
+  const fields = ['Admission Fees', 'Facility Utilization Fees'];
+  for (const f of fields) {
+    const hit = items.find((x) => x.infoname === f);
+    if (hit?.infotext) return stripHtml(hit.infotext);
+  }
+  return '';
+}
+
+// 목록 뷰용 — detailCommon2 + detailIntro2 + detailInfo2 호출
 export async function getAttractionBasicFromAPI(contentId: string): Promise<TourAPIAttraction> {
 
-  const common = await fetchJSON(BASE, 'detailCommon2', { contentId });
+  const [common, intro, info] = await Promise.all([
+    fetchJSON(BASE, 'detailCommon2', { contentId }),
+    fetchJSON(BASE, 'detailIntro2', { contentId, contentTypeId: '12' }),
+    fetchJSON(BASE, 'detailInfo2', { contentId, contentTypeId: '12' }),
+  ]);
   const c: TourAPIBasic = common.response?.body?.items?.item?.[0];
   if (!c) throw new Error(`TourAPI: contentId ${contentId} not found`);
+  const i: TourAPIIntro = intro.response?.body?.items?.item?.[0] ?? {};
+  const infoItems: TourAPIInfo[] = [].concat(info.response?.body?.items?.item ?? []);
 
   return {
     name: c.title,
     description: stripHtml(c.overview ?? ''),
     center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
-    hours: '',
-    admission: '',
+    hours: stripHtml(i.usetime ?? ''),
+    admission: pickKorAdmission(infoItems),
     image: c.firstimage ?? '',
   };
 }
@@ -94,37 +120,76 @@ export async function getAttractionFromAPI(contentId: string, contentTypeId = '1
   const i: TourAPIIntro = intro.response?.body?.items?.item?.[0] ?? {};
   const infoItems: TourAPIInfo[] = info.response?.body?.items?.item ?? [];
 
-  const admissionItem = infoItems.find((x) => x.infoname === '입장료');
-
   return {
     name: c.title,
     description: stripHtml(c.overview ?? ''),
     center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
     hours: stripHtml(i.usetime ?? ''),
-    admission: stripHtml(admissionItem?.infotext ?? ''),
+    admission: pickKorAdmission(infoItems),
     image: c.firstimage ?? '',
   };
 }
 
 export async function getAttractionFromEngAPI(contentId: string): Promise<TourAPIAttraction> {
 
-  const [common, intro] = await Promise.all([
+  const [common, intro, info] = await Promise.all([
     fetchJSON(ENG_BASE, 'detailCommon2', { contentId }),
     fetchJSON(ENG_BASE, 'detailIntro2', { contentId, contentTypeId: '76' }),
+    fetchJSON(ENG_BASE, 'detailInfo2', { contentId, contentTypeId: '76' }),
   ]);
 
   const c: TourAPIBasic = common.response?.body?.items?.item?.[0];
   if (!c) throw new Error(`TourAPI ENG: contentId ${contentId} not found`);
   const i: TourAPIIntro = intro.response?.body?.items?.item?.[0] ?? {};
+  const infoItems: TourAPIInfo[] = [].concat(info.response?.body?.items?.item ?? []);
 
   return {
     name: c.title.replace(/\s*\(.*?\)\s*$/, ''),
     description: stripHtml(c.overview ?? ''),
     center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
     hours: stripHtml(i.usetime ?? ''),
-    admission: '',
+    admission: pickEngAdmission(infoItems),
     image: c.firstimage ?? '',
   };
+}
+
+export async function getRestaurantBasicFromAPI(contentId: string): Promise<{
+  name: string; addr: string; center: { lat: number; lng: number }; image: string; tel: string;
+}> {
+  const common = await fetchJSON(BASE, 'detailCommon2', { contentId });
+  const c: TourAPIBasic = common.response?.body?.items?.item?.[0];
+  if (!c) throw new Error(`TourAPI: ${contentId} not found`);
+  return {
+    name: c.title ?? '',
+    addr: c.addr1 ?? '',
+    center: { lat: parseFloat(c.mapy), lng: parseFloat(c.mapx) },
+    image: c.firstimage ?? '',
+    tel: c.tel ?? '',
+  };
+}
+
+export async function fetchHoursOnly(contentId: string, lang: 'ko' | 'en'): Promise<string> {
+  const base = lang === 'ko' ? BASE : ENG_BASE;
+  const contentTypeId = lang === 'ko' ? '12' : '76';
+  try {
+    const intro = await fetchJSON(base, 'detailIntro2', { contentId, contentTypeId });
+    const i: TourAPIIntro = intro.response?.body?.items?.item?.[0] ?? {};
+    return stripHtml(i.usetime ?? '');
+  } catch {
+    return '';
+  }
+}
+
+export async function fetchAdmissionOnly(contentId: string, lang: 'ko' | 'en'): Promise<string> {
+  const base = lang === 'ko' ? BASE : ENG_BASE;
+  const contentTypeId = lang === 'ko' ? '12' : '76';
+  try {
+    const info = await fetchJSON(base, 'detailInfo2', { contentId, contentTypeId });
+    const items: TourAPIInfo[] = [].concat(info.response?.body?.items?.item ?? []);
+    return lang === 'ko' ? pickKorAdmission(items) : pickEngAdmission(items);
+  } catch {
+    return '';
+  }
 }
 
 export async function getAttractionImages(contentId: string): Promise<string[]> {

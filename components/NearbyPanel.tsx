@@ -28,6 +28,7 @@ interface Props {
   onRestaurantsFound: (pins: RestaurantPin[]) => void;
   inline?: boolean;
   highlightedId?: string | null;
+  initialMode?: 'current' | 'pin';
 }
 
 const RADII = [
@@ -46,10 +47,10 @@ function formatDist(dist: string) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
 }
 
-export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inline = false, highlightedId = null }: Props) {
+export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inline = false, highlightedId = null, initialMode }: Props) {
   const l = lang as Lang;
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState<'current' | 'pin'>('current');
+  const [mode, setMode] = useState<'current' | 'pin'>(initialMode ?? 'current');
   const [radius, setRadius] = useState('1000');
   const [loading, setLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -143,21 +144,23 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inl
 
   const searchControls = (
     <div className="px-5 py-3 flex flex-col gap-2.5 shrink-0">
-      <div className="flex gap-2">
-        <button
-          onClick={() => setMode('current')}
-          className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${mode === 'current' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-stone-200 text-stone-600'}`}
-        >
-          📍 {t(l, 'restaurant.myLocation')}
-        </button>
-        <button
-          onClick={() => setMode('pin')}
-          disabled={!selectedPin}
-          className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${mode === 'pin' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-stone-200 text-stone-600'} disabled:opacity-40`}
-        >
-          🗺 {t(l, 'restaurant.selectedPin')}
-        </button>
-      </div>
+      {!initialMode && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode('current')}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${mode === 'current' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-stone-200 text-stone-600'}`}
+          >
+            📍 {t(l, 'restaurant.myLocation')}
+          </button>
+          <button
+            onClick={() => setMode('pin')}
+            disabled={!selectedPin}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${mode === 'pin' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-stone-200 text-stone-600'} disabled:opacity-40`}
+          >
+            🗺 {t(l, 'restaurant.selectedPin')}
+          </button>
+        </div>
+      )}
       <div className="flex gap-2">
         {RADII.map((r) => (
           <button

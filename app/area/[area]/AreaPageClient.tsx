@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Attraction, RestaurantPin } from '@/lib/types';
+import { Attraction, RestaurantPin, LocalRestaurant } from '@/lib/types';
 import type { SectorRow } from '@/lib/sheets';
 import { t, type Lang, type MessageKey } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
@@ -19,6 +19,7 @@ interface Props {
   sectors: SectorRow[];
   tagMap: Record<string, string>;
   center: { lat: number; lng: number };
+  localRestaurants: LocalRestaurant[];
 }
 
 interface LightboxState {
@@ -81,7 +82,7 @@ const EVENT_STATUS_BADGE: Record<string, { labelKey: MessageKey; cls: string }> 
   upcoming: { labelKey: 'event.badge.upcoming',  cls: 'bg-stone-100 text-stone-500' },
 };
 
-export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center }: Props) {
+export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center, localRestaurants }: Props) {
   const l = lang as Lang;
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -92,7 +93,19 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   const [detailAttr, setDetailAttr] = useState<Attraction | null>(null);
   const [restaurantPins, setRestaurantPins] = useState<RestaurantPin[]>([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
-  const [mode, setMode] = useState<'attractions' | 'restaurants' | 'events'>('attractions');
+  const [restaurantSubTab, setRestaurantSubTab] = useState<'nearby' | 'local'>('nearby');
+  const [selectedLocalRestaurant, setSelectedLocalRestaurant] = useState<LocalRestaurant | null>(null);
+  const [localDetailMap, setLocalDetailMap] = useState<Record<string, { firstmenu?: string; treatmenu?: string; opentimefood?: string; restdatefood?: string }>>({});
+  const localRestaurantPins: RestaurantPin[] = useMemo(
+    () => localRestaurants.filter((r) => r.center).map((r) => ({
+      contentid: r.contentid || r.id,
+      title: r.name,
+      lat: r.center!.lat,
+      lng: r.center!.lng,
+    })),
+    [localRestaurants],
+  );
+  const [mode, setMode] = useState<'highlights' | 'attractions' | 'restaurants' | 'events'>('highlights');
   const [areaEvents, setAreaEvents] = useState<SectorEventItem[]>([]);
   const [selectedSectorEvent, setSelectedSectorEvent] = useState<SectorEventItem | null>(null);
   const todayYMD = useMemo(() => toYMD(new Date()), []);
@@ -103,6 +116,25 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
       .then(data => setAreaEvents(data.events ?? []))
       .catch(() => {});
   }, [area, lang]);
+
+  // 로컬 탭 진입 시 contentid 있는 식당의 메뉴/영업시간 등 detail 정보 pre-fetch
+  // NearbyPanel과 동일한 /api/restaurant-detail 사용 (시트 데이터 없을 때 API로 보완)
+  useEffect(() => {
+    if (restaurantSubTab !== 'local') return;
+    const toFetch = localRestaurants.filter((r) => r.contentid && !localDetailMap[r.contentid]);
+    if (toFetch.length === 0) return;
+    Promise.all(
+      toFetch.map(async (r) => {
+        try {
+          const res = await fetch(`/api/restaurant-detail?contentId=${r.contentid}&lang=${lang}`);
+          const data = await res.json();
+          return [r.contentid!, data.response?.body?.items?.item?.[0] ?? {}] as const;
+        } catch { return [r.contentid!, {}] as const; }
+      })
+    ).then((results) => {
+      setLocalDetailMap((prev) => ({ ...prev, ...Object.fromEntries(results) }));
+    });
+  }, [restaurantSubTab, localRestaurants, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // firstimage 없는 명소 썸네일을 배경에서 순차적으로 프리로드
   useEffect(() => {
@@ -140,13 +172,15 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     sortedSectors[0]?.sectorKo ?? ''
   );
 
-  const sectorAttractions = useMemo(
-    () =>
-      activeSector
-        ? attractions.filter((a) => a.sector === activeSector)
-        : attractions,
-    [attractions, activeSector]
+  const highlightAttractions = useMemo(
+    () => attractions.filter((a) => !!a.star),
+    [attractions]
   );
+
+  const sectorAttractions = useMemo(() => {
+    if (mode === 'highlights') return highlightAttractions;
+    return activeSector ? attractions.filter((a) => a.sectors?.includes(activeSector)) : attractions;
+  }, [attractions, highlightAttractions, activeSector, mode]);
 
   const sectorIds = useMemo(
     () => sectorAttractions.map((a) => a.id),
@@ -154,7 +188,9 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   );
 
   const handleCardTap = (attractionId: string) => {
-    if (!isSectorMode && selectedId === attractionId) {
+    const attr = attractions.find((a) => a.id === attractionId);
+    const hasGuide = (attr?.aBlocks?.length ?? 0) > 0 || (attr?.pins?.length ?? 0) > 0;
+    if (hasGuide && !isSectorMode && selectedId === attractionId) {
       router.push(`/guide/${attractionId}?lang=${lang}`);
     } else {
       setIsSectorMode(false);
@@ -164,7 +200,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
   const handlePinClick = (attractionId: string) => {
     const attr = attractions.find((a) => a.id === attractionId);
-    if (attr?.sector) setActiveSector(attr.sector);
+    if (attr?.sectors?.length) setActiveSector(attr.sectors[0]);
     setIsSectorMode(false);
     setSelectedId(attractionId);
   };
@@ -221,30 +257,31 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
         <div className="h-[45vh] shrink-0">
           <TourMap
-            attractions={attractions}
+            attractions={mode === 'highlights' ? highlightAttractions : attractions}
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
             sectorIds={sectorIds}
             isSectorMode={isSectorMode}
             onPinClick={handlePinClick}
-            restaurantPins={restaurantPins}
+            restaurantPins={mode === 'restaurants' && restaurantSubTab === 'local' ? localRestaurantPins : (mode === 'restaurants' ? restaurantPins : [])}
             selectedRestaurantId={selectedRestaurantId}
             onRestaurantPinClick={setSelectedRestaurantId}
             lang={lang}
+            showOrder={mode === 'attractions'}
           />
         </div>
 
-        {/* 명소 / 식당 / 행사 모드 탭 */}
-        <div className="px-5 pt-3 pb-1 shrink-0 flex gap-2">
-          {(['attractions', 'restaurants', 'events'] as const).map((m) => {
-            const labelKey = m === 'attractions' ? 'tab.attractions' : m === 'restaurants' ? 'tab.restaurants' : 'tab.events';
-            const label = t(l, labelKey as MessageKey);
+        {/* 하이라이트 / 섹터 / 식당 / 행사 모드 탭 */}
+        <div className="px-5 pt-3 pb-1 shrink-0 flex gap-2 overflow-x-auto no-scrollbar">
+          {(['highlights', 'attractions', 'restaurants', 'events'] as const).map((m) => {
+            const labelKey: MessageKey = m === 'highlights' ? 'tab.highlights' : m === 'attractions' ? 'tab.sector' : m === 'restaurants' ? 'tab.restaurants' : 'tab.events';
+            const label = t(l, labelKey);
             return (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === m ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
+                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === m ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
               >
                 {label}
               </button>
@@ -265,7 +302,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                     onClick={() => {
                     setActiveSector(s.sectorKo);
                     setIsSectorMode(true);
-                    const first = attractions.find((a) => a.sector === s.sectorKo);
+                    const first = attractions.find((a) => a.sectors?.includes(s.sectorKo));
                     setSelectedId(first?.id ?? null);
                   }}
                     className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
@@ -290,17 +327,83 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
         {/* 식당 */}
         {mode === 'restaurants' && (
-          <NearbyPanel
-            inline
-            selectedPin={attractions.find((a) => a.id === selectedId)?.center ?? null}
-            lang={lang}
-            onRestaurantsFound={setRestaurantPins}
-            highlightedId={selectedRestaurantId}
-          />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* 근처 식당 / 핀 / 로컬 인기 서브탭 */}
+            <div className="flex gap-2 px-5 pt-3 pb-1 shrink-0">
+              {([
+                { key: 'nearby', label: 'restaurant.nearby' },
+                { key: 'local',  label: 'restaurant.local' },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setRestaurantSubTab(key)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    restaurantSubTab === key
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-white text-stone-500 border border-stone-200'
+                  }`}
+                >
+                  {t(l, label)}
+                </button>
+              ))}
+            </div>
+
+            {restaurantSubTab === 'nearby' && (
+              <NearbyPanel
+                inline
+                selectedPin={attractions.find((a) => a.id === selectedId)?.center ?? null}
+                lang={lang}
+                onRestaurantsFound={setRestaurantPins}
+                highlightedId={selectedRestaurantId}
+              />
+            )}
+
+            {restaurantSubTab === 'local' && (
+              <div className="flex-1 overflow-y-auto px-5 pb-10">
+                <div className="flex flex-col gap-2.5 pt-1">
+                  {localRestaurants.length === 0 && (
+                    <p className="text-sm text-stone-400 text-center mt-10">{t(l, 'restaurant.empty')}</p>
+                  )}
+                  {localRestaurants.map((r) => {
+                    const rid = r.contentid || r.id;
+                    const isHighlighted = selectedRestaurantId === rid;
+                    const detail = r.contentid ? localDetailMap[r.contentid] : undefined;
+                    const displayMenu = r.signature || detail?.firstmenu;
+                    return (
+                      <button
+                        key={r.id}
+                        className={`rounded-xl overflow-hidden flex text-left w-full active:bg-stone-100 transition-all ${isHighlighted ? 'bg-amber-50 ring-2 ring-amber-400' : 'bg-stone-50'}`}
+                        onClick={() => {
+                          setSelectedRestaurantId(rid);
+                          setSelectedLocalRestaurant(r);
+                        }}
+                      >
+                        <div className="flex-1 min-w-0 px-3 py-2.5">
+                          <p className="font-bold text-stone-800 text-sm truncate">{r.name}</p>
+                          {displayMenu && (
+                            <p className="text-xs text-stone-500 mt-0.5 truncate">{displayMenu}</p>
+                          )}
+                          {r.addr && (
+                            <p className="text-xs text-amber-600 font-medium mt-1 truncate">{r.addr}</p>
+                          )}
+                        </div>
+                        {r.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={r.image} alt={r.name} className="w-20 h-20 object-cover shrink-0" />
+                        ) : (
+                          <div className="w-20 h-20 shrink-0 bg-stone-50" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* attraction list */}
-        {mode === 'attractions' && <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
+        {(mode === 'highlights' || mode === 'attractions') && <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
           {sectorAttractions.map((attraction) => {
             const isSelected = !isSectorMode && selectedId === attraction.id;
             const images = (attraction.images ?? []).map(toHttps);
@@ -350,19 +453,14 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
                     {/* admission */}
                     {attraction.admission && (
-                      <p className="text-xs text-stone-400 mt-1">🎫 {attraction.admission}</p>
+                      <p className="text-xs text-stone-400 mt-1 whitespace-pre-line">🎫 {attraction.admission}</p>
                     )}
 
                     {/* hours */}
                     {attraction.hours && (
-                      <p className="text-xs text-stone-400 mt-0.5">⏰ {attraction.hours}</p>
+                      <p className="text-xs text-stone-400 mt-0.5 whitespace-pre-line">⏰ {attraction.hours}</p>
                     )}
 
-                    {isSelected && (
-                      <p className="text-xs text-amber-600 mt-2 font-medium">
-                        {t(lang as 'ko' | 'en', 'tapAgain')}
-                      </p>
-                    )}
                   </div>
 
                   {/* thumbnail */}
@@ -504,6 +602,68 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                   ));
                 })()}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 로컬 식당 세부정보 팝업 */}
+      {selectedLocalRestaurant && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/40 flex items-end justify-center"
+          onClick={() => setSelectedLocalRestaurant(null)}
+        >
+          <div
+            className="bg-white rounded-t-2xl w-full max-w-lg flex flex-col"
+            style={{ maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-stone-100 shrink-0">
+              <button onClick={() => setSelectedLocalRestaurant(null)} className="text-stone-500 text-sm">
+                ← {t(l, 'restaurant.back')}
+              </button>
+              <p className="font-bold text-stone-800 text-sm truncate max-w-[60%]">{selectedLocalRestaurant.name}</p>
+              <button onClick={() => setSelectedLocalRestaurant(null)} className="text-stone-400 text-2xl leading-none">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto pb-10">
+              {selectedLocalRestaurant.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={selectedLocalRestaurant.image} alt={selectedLocalRestaurant.name} className="w-full h-44 object-cover" />
+              )}
+              <div className="px-5 pt-4 flex flex-col gap-0">
+                {(() => {
+                  const d = selectedLocalRestaurant.contentid ? (localDetailMap[selectedLocalRestaurant.contentid] ?? {}) : {};
+                  const rows: { label: string; value: string }[] = [];
+                  const sig = selectedLocalRestaurant.signature || d.firstmenu;
+                  const menu = selectedLocalRestaurant.menu || d.treatmenu;
+                  const hours = selectedLocalRestaurant.hours || d.opentimefood;
+                  const closed = selectedLocalRestaurant.closed || d.restdatefood;
+                  if (sig)    rows.push({ label: t(l, 'restaurant.field.signature'), value: sig });
+                  if (menu)   rows.push({ label: t(l, 'restaurant.field.menu'),      value: menu });
+                  if (hours)  rows.push({ label: t(l, 'restaurant.field.hours'),     value: hours });
+                  if (closed) rows.push({ label: t(l, 'restaurant.field.closed'),    value: closed });
+                  if (selectedLocalRestaurant.addr) rows.push({ label: t(l, 'restaurant.field.address'), value: selectedLocalRestaurant.addr });
+                  if (selectedLocalRestaurant.tel)  rows.push({ label: t(l, 'restaurant.field.tel'),     value: selectedLocalRestaurant.tel });
+                  return rows.map((row) => (
+                    <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
+                      <p className="text-xs text-stone-400 w-16 shrink-0 pt-0.5">{row.label}</p>
+                      <p className="text-sm text-stone-700 flex-1 whitespace-pre-line">{row.value}</p>
+                    </div>
+                  ));
+                })()}
+              </div>
+              {selectedLocalRestaurant.center && (
+                <div className="px-5 pt-4">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${selectedLocalRestaurant.center.lat},${selectedLocalRestaurant.center.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-2.5 text-center text-sm font-medium text-stone-600 border border-stone-200 rounded-xl bg-stone-50 active:bg-stone-100"
+                  >
+                    {t(l, 'restaurant.googleMaps')}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>

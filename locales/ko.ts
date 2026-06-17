@@ -13,6 +13,8 @@ const ko = {
 
   // ── 메인 탭 (홈, 지역 페이지 공통) ─────────────────────────────────────
   'tab.attractions': '명소',
+  'tab.highlights':  '하이라이트',
+  'tab.sector':      '섹터',
   'tab.events':      '행사',
   'tab.restaurants': '식당',
   'tab.all':         '전체',
@@ -64,6 +66,9 @@ const ko = {
   'restaurant.field.hours':      '영업시간',
   'restaurant.field.closed':     '휴무일',
   'restaurant.field.address':    '주소',
+  'restaurant.field.tel':        '전화',
+  'restaurant.nearby':           '근처 식당',
+  'restaurant.local':            '로컬 인기',
 
   // ── 갤러리 ──────────────────────────────────────────────────────────────
   'gallery.noPhotos': '사진이 없어요',

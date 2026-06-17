@@ -59,6 +59,7 @@ export async function getAreaRows(): Promise<AreaRow[]> {
 // ── Sheet: event_overrides ───────────────────────────────────────────
 // id | area | name | contentId | note
 export interface EventOverrideRow {
+  area: string;
   contentId: string;
   note: string;
 }
@@ -68,13 +69,14 @@ export async function getEventOverrides(): Promise<EventOverrideRow[]> {
   return rows
     .filter((r) => r[3])
     .map((r) => ({
+      area: r[1] ?? '',
       contentId: r[3] ?? '',
       note: r[4] ?? '',
     }));
 }
 
 // ── Sheet: attraction ───────────────────────────────────────────────
-// id | area | name | sector | kor_content_id | eng_content_id | lat | lng | admission | defaultZoom | priority | star | tag_csv | tag_en | photo
+// id | area | name | sector | kor_content_id | eng_content_id | lat | lng | admission | defaultZoom | priority | star | tag_csv | hour | Comment | routeOrder | lat2 | lng2
 export interface AttractionRow {
   id: string;
   area: string;
@@ -89,6 +91,11 @@ export interface AttractionRow {
   priority: number;
   star: string;
   tags: string[];
+  sectors: string[];
+  sheetHours: string;
+  attractionOrder?: number;
+  lat2?: number;
+  lng2?: number;
 }
 
 export async function getAttractionRows(): Promise<AttractionRow[]> {
@@ -109,6 +116,11 @@ export async function getAttractionRows(): Promise<AttractionRow[]> {
       priority: parseInt(r[10]) || 0,
       star: r[11] ?? '',
       tags: r[12] ? r[12].split(',').map((t) => t.trim()).filter(Boolean) : [],
+      sectors: r[3] ? r[3].split(',').map((s) => s.trim()).filter(Boolean) : [],
+      sheetHours: r[13] ?? '',
+      attractionOrder: r[15] ? parseInt(r[15]) || undefined : undefined,
+      lat2: r[16] ? parseFloat(r[16]) || undefined : undefined,
+      lng2: r[17] ? parseFloat(r[17]) || undefined : undefined,
     }));
 }
 
@@ -134,6 +146,47 @@ export async function getSectorRows(): Promise<SectorRow[]> {
       priority: parseInt(r[3]) || 0,
       sectorEn: r[4] ?? '',
       addrKeyword: r[5] ?? '',
+    }));
+}
+
+// ── Sheet: restaurant ───────────────────────────────────────────────
+// id | area | name | kor_content_id | addr1 | lat | lng | firstimage | tel | signature | menu | hours | closed
+export interface RestaurantRow {
+  id: string;
+  area: string;
+  name: string;
+  nameEn: string;
+  korContentId: string;
+  addr1: string;
+  lat: number;
+  lng: number;
+  firstimage: string;
+  tel: string;
+  signature: string;
+  menu: string;
+  hours: string;
+  closed: string;
+}
+
+export async function getRestaurantRows(): Promise<RestaurantRow[]> {
+  const rows = await getRows('restaurant');
+  return rows
+    .filter((r) => r[0] && r[2])
+    .map((r) => ({
+      id: r[0],
+      area: r[1] ?? '',
+      name: r[2] ?? '',
+      nameEn: r[3] ?? '',
+      korContentId: r[4] ?? '',
+      addr1: r[5] ?? '',
+      lat: parseFloat(r[6]) || 0,
+      lng: parseFloat(r[7]) || 0,
+      firstimage: r[8] ?? '',
+      tel: r[9] ?? '',
+      signature: r[10] ?? '',
+      menu: r[11] ?? '',
+      hours: r[12] ?? '',
+      closed: r[13] ?? '',
     }));
 }
 

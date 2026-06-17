@@ -140,11 +140,10 @@ export default function PlayerBar({ attraction, onStart }: PlayerBarProps) {
         <p className="text-lg font-bold text-stone-800 mb-1">{displayName}</p>
         <p className="text-sm text-stone-400">{attraction.description}</p>
         {(attraction.admission || attraction.hours) && (
-          <p className="text-xs text-stone-400 mt-1 mb-6">
-            {attraction.admission && `🎫 ${attraction.admission}`}
-            {attraction.admission && attraction.hours && '  '}
-            {attraction.hours && `⏰ ${attraction.hours}`}
-          </p>
+          <div className="text-xs text-stone-400 mt-1 mb-6">
+            {attraction.admission && <p className="whitespace-pre-line">🎫 {attraction.admission}</p>}
+            {attraction.hours && <p className="whitespace-pre-line">⏰ {attraction.hours}</p>}
+          </div>
         )}
         {!(attraction.admission || attraction.hours) && <div className="mb-6" />}
         <button onClick={onStart}
