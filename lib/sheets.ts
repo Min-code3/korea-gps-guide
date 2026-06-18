@@ -137,7 +137,7 @@ export interface SectorRow {
 
 export async function getSectorRows(): Promise<SectorRow[]> {
   const rows = await getRows('sector');
-  return rows
+  const raw = rows
     .filter((r) => r[0])
     .map((r) => ({
       id: r[0],
@@ -147,6 +147,21 @@ export async function getSectorRows(): Promise<SectorRow[]> {
       sectorEn: r[4] ?? '',
       addrKeyword: r[5] ?? '',
     }));
+
+  // sectorKo가 "사과, 바나나"처럼 콤마로 묶인 경우 개별 탭으로 분리
+  // 의도: 하나의 명소가 여러 섹터에 동시 노출되도록 시트에 입력한 경우
+  const expanded: SectorRow[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    const koList = row.sectorKo.split(',').map((s) => s.trim()).filter(Boolean);
+    const enList = row.sectorEn.split(',').map((s) => s.trim());
+    koList.forEach((ko, idx) => {
+      if (seen.has(`${row.area}:${ko}`)) return;
+      seen.add(`${row.area}:${ko}`);
+      expanded.push({ ...row, sectorKo: ko, sectorEn: enList[idx] ?? '' });
+    });
+  }
+  return expanded;
 }
 
 // ── Sheet: restaurant ───────────────────────────────────────────────

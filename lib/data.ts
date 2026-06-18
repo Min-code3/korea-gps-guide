@@ -306,6 +306,21 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
         );
       }
     }
+
+    // ── Name / Description ────────────────────────────────────────
+    // engContentId 없는 명소는 KOR API(한글) name·description 사용 → 번역 필요
+    // engContentId 있는 명소는 ENG API에서 이미 영문으로 가져옴 → 번역 불필요
+    const needsTextTr = rows.map((row) => !row.engContentId && !!row.korContentId);
+    if (needsTextTr.some(Boolean)) {
+      const names = result.map((a, i) => (needsTextTr[i] ? (a.name ?? '') : ''));
+      const descs = result.map((a, i) => (needsTextTr[i] ? (a.description ?? '') : ''));
+      const [trNames, trDescs] = await Promise.all([translateBatch(names), translateBatch(descs)]);
+      result = result.map((a, i) =>
+        needsTextTr[i]
+          ? { ...a, name: trNames[i] || a.name, description: trDescs[i] || a.description }
+          : a
+      );
+    }
   }
 
   return result;
@@ -348,6 +363,13 @@ export async function getAttractionById(id: string, lang: Lang = 'ko'): Promise<
     } else if (attr.admission && (row.admission || !row.engContentId)) {
       const [translated] = await translateBatch([attr.admission]);
       if (translated) attr = { ...attr, admission: translated };
+    }
+
+    // engContentId 없는 명소는 KOR API(한글) name·description → 번역 필요
+    if (!row.engContentId && row.korContentId) {
+      const [tName, tDesc] = await translateBatch([attr.name ?? '', attr.description ?? '']);
+      if (tName) attr = { ...attr, name: tName };
+      if (tDesc) attr = { ...attr, description: tDesc };
     }
   }
 
