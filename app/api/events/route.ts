@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     // event_overrides에 있지만 일반 조회에서 누락된 행사 직접 fetch
     // (searchFestival2의 eventStartDate 범위보다 일찍 시작된 장기 행사 보완)
     const activeIds = new Set(active.map((e: EventRaw) => e.contentid));
-    const missingOverrides = overrides.filter(o => !activeIds.has(o.contentId));
+    const missingOverrides = overrides.filter(o => !activeIds.has(o.contentId) && o.area === area);
     const extraEvents: EventRaw[] = (await Promise.all(
       missingOverrides.map(async (o) => {
         const p  = new URLSearchParams({ serviceKey: KEY, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide', _type: 'json', contentId: o.contentId });
