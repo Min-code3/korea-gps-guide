@@ -30,7 +30,7 @@ async function getRows(sheetName: string): Promise<string[][]> {
 }
 
 // ── Sheet: area ─────────────────────────────────────────────────────
-// nation | nation_en | area | dec | area_en | 이동시간 | show_events | event_order
+// nation | nation_en | area | dec | area_en | event_order | show_events | scctor
 export interface AreaRow {
   nation: string;
   nationEn: string;
@@ -51,8 +51,8 @@ export async function getAreaRows(): Promise<AreaRow[]> {
       area: r[2] ?? '',
       description: r[3] ?? '',
       areaEn: r[4] ?? '',
+      eventOrder: parseInt(r[5]) || 999,
       showEvents: r[6] === 'TRUE',
-      eventOrder: parseInt(r[7]) || 999,
     }));
 }
 

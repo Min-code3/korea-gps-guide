@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Attraction, RestaurantPin, LocalRestaurant } from '@/lib/types';
 import type { SectorRow } from '@/lib/sheets';
@@ -85,7 +85,8 @@ const EVENT_STATUS_BADGE: Record<string, { labelKey: MessageKey; cls: string }> 
 export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center, localRestaurants }: Props) {
   const l = lang as Lang;
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selectedId = selectedIds[0] ?? null; // 하위 호환 — 단일 선택 맥락에서 사용
   const [isSectorMode, setIsSectorMode] = useState(true);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [lightboxLoading, setLightboxLoading] = useState(false);
@@ -109,6 +110,22 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   const [areaEvents, setAreaEvents] = useState<SectorEventItem[]>([]);
   const [selectedSectorEvent, setSelectedSectorEvent] = useState<SectorEventItem | null>(null);
   const todayYMD = useMemo(() => toYMD(new Date()), []);
+
+  // 카드 스크롤용 refs
+  const attractionCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const localRestaurantCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // 명소 핀 클릭 → 해당 카드로 스크롤
+  useEffect(() => {
+    if (!selectedId || isSectorMode) return;
+    attractionCardRefs.current[selectedId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selectedId, isSectorMode]);
+
+  // 식당 핀 클릭 → 로컬 식당 카드로 스크롤 (NearbyPanel은 내부에서 자체 처리)
+  useEffect(() => {
+    if (!selectedRestaurantId || restaurantSubTab !== 'local') return;
+    localRestaurantCardRefs.current[selectedRestaurantId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selectedRestaurantId, restaurantSubTab]);
 
   useEffect(() => {
     fetch(`/api/events?area=${encodeURIComponent(area)}&lang=${lang}`)
@@ -177,24 +194,41 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     [attractions]
   );
 
+  const [highlightSubTab, setHighlightSubTab] = useState<'top' | 'all'>('top');
+
   const sectorAttractions = useMemo(() => {
-    if (mode === 'highlights') return highlightAttractions;
+    if (mode === 'highlights') return highlightSubTab === 'top' ? highlightAttractions : attractions;
     return activeSector ? attractions.filter((a) => a.sectors?.includes(activeSector)) : attractions;
-  }, [attractions, highlightAttractions, activeSector, mode]);
+  }, [attractions, highlightAttractions, activeSector, mode, highlightSubTab]);
 
   const sectorIds = useMemo(
     () => sectorAttractions.map((a) => a.id),
     [sectorAttractions]
   );
 
+  // 좌표 공유 lookup: "lat,lng" → 해당 좌표를 가진 attraction ID 목록
+  // center 또는 center2가 동일한 명소들을 한 번에 하이라이트하기 위해 사용
+  const coordToIds = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const a of attractions) {
+      const key1 = `${a.center.lat},${a.center.lng}`;
+      (map[key1] ??= []).push(a.id);
+      if (a.center2) {
+        const key2 = `${a.center2.lat},${a.center2.lng}`;
+        (map[key2] ??= []).push(a.id);
+      }
+    }
+    return map;
+  }, [attractions]);
+
   const handleCardTap = (attractionId: string) => {
     const attr = attractions.find((a) => a.id === attractionId);
     const hasGuide = (attr?.aBlocks?.length ?? 0) > 0 || (attr?.pins?.length ?? 0) > 0;
-    if (hasGuide && !isSectorMode && selectedId === attractionId) {
+    if (hasGuide && !isSectorMode && selectedIds.includes(attractionId)) {
       router.push(`/guide/${attractionId}?lang=${lang}`);
     } else {
       setIsSectorMode(false);
-      setSelectedId(attractionId);
+      setSelectedIds([attractionId]);
     }
   };
 
@@ -202,7 +236,10 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     const attr = attractions.find((a) => a.id === attractionId);
     if (attr?.sectors?.length) setActiveSector(attr.sectors[0]);
     setIsSectorMode(false);
-    setSelectedId(attractionId);
+    // 클릭한 명소와 같은 좌표를 공유하는 명소들 모두 하이라이트
+    const key1 = `${attr?.center.lat},${attr?.center.lng}`;
+    const shared = coordToIds[key1] ?? [attractionId];
+    setSelectedIds(shared.length > 1 ? shared : [attractionId]);
   };
 
   // 현재 sector의 addr_keyword와 일치하는 행사
@@ -261,6 +298,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
+            selectedIds={selectedIds}
             sectorIds={sectorIds}
             isSectorMode={isSectorMode}
             onPinClick={handlePinClick}
@@ -289,6 +327,30 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
           })}
         </div>
 
+        {/* highlights 서브탭: Top | All */}
+        {mode === 'highlights' && highlightAttractions.length > 0 && (
+          <div className="px-5 pt-2 pb-1 shrink-0 flex gap-2">
+            {(['top', 'all'] as const).map((tab) => {
+              const label = tab === 'top'
+                ? (lang === 'en' ? 'Top Picks' : '추천')
+                : (lang === 'en' ? 'All' : '전체');
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setHighlightSubTab(tab)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    highlightSubTab === tab
+                      ? 'bg-amber-500 border-amber-500 text-white'
+                      : 'bg-white border-stone-200 text-stone-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* sector tabs */}
         {mode === 'attractions' && sortedSectors.length > 0 && (
           <div className="px-5 pt-2 pb-2 bg-stone-50 shrink-0">
@@ -303,7 +365,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                     setActiveSector(s.sectorKo);
                     setIsSectorMode(true);
                     const first = attractions.find((a) => a.sectors?.includes(s.sectorKo));
-                    setSelectedId(first?.id ?? null);
+                    setSelectedIds(first ? [first.id] : []);
                   }}
                     className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
                       active
@@ -355,6 +417,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                 lang={lang}
                 onRestaurantsFound={setRestaurantPins}
                 highlightedId={selectedRestaurantId}
+                onRestaurantHighlight={setSelectedRestaurantId}
               />
             )}
 
@@ -372,10 +435,14 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                     return (
                       <button
                         key={r.id}
+                        ref={(el) => { localRestaurantCardRefs.current[rid] = el; }}
                         className={`rounded-xl overflow-hidden flex text-left w-full active:bg-stone-100 transition-all ${isHighlighted ? 'bg-amber-50 ring-2 ring-amber-400' : 'bg-stone-50'}`}
                         onClick={() => {
-                          setSelectedRestaurantId(rid);
-                          setSelectedLocalRestaurant(r);
+                          if (isHighlighted) {
+                            setSelectedLocalRestaurant(r);
+                          } else {
+                            setSelectedRestaurantId(rid);
+                          }
                         }}
                       >
                         <div className="flex-1 min-w-0 px-3 py-2.5">
@@ -405,7 +472,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
         {/* attraction list */}
         {(mode === 'highlights' || mode === 'attractions') && <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-3 pt-1">
           {sectorAttractions.map((attraction) => {
-            const isSelected = !isSectorMode && selectedId === attraction.id;
+            const isSelected = !isSectorMode && selectedIds.includes(attraction.id);
             const images = (attraction.images ?? []).map(toHttps);
             const cached = attraction.contentId ? (galleryCache[attraction.contentId] ?? []) : [];
             const thumb = images[0] || cached[0];
@@ -417,6 +484,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             return (
               <button
                 key={attraction.id}
+                ref={(el) => { attractionCardRefs.current[attraction.id] = el; }}
                 className={`w-full text-left bg-white rounded-2xl shadow-sm px-5 py-4 transition-all active:bg-stone-50 ${isSelected ? 'ring-2 ring-amber-500' : ''}`}
                 onClick={() => handleCardTap(attraction.id)}
               >

@@ -10,6 +10,7 @@ interface TourMapProps {
   center: { lat: number; lng: number };
   defaultZoom: number;
   selectedId: string | null;
+  selectedIds?: string[]; // 좌표 공유 멀티 하이라이트
   sectorIds?: string[];
   isSectorMode?: boolean;
   onPinClick: (attractionId: string) => void;
@@ -29,7 +30,7 @@ const MAP_STYLES = [
 
 const CIRCLE = 0 as unknown as google.maps.SymbolPath;
 
-export default function TourMap({ attractions, center, defaultZoom, selectedId, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [], selectedRestaurantId = null, onRestaurantPinClick, lang = 'ko', showOrder = false }: TourMapProps) {
+export default function TourMap({ attractions, center, defaultZoom, selectedId, selectedIds, sectorIds = [], isSectorMode = false, onPinClick, restaurantPins = [], selectedRestaurantId = null, onRestaurantPinClick, lang = 'ko', showOrder = false }: TourMapProps) {
   const l = lang as Lang;
   const mapRef = useRef<google.maps.Map | null>(null);
 
@@ -87,7 +88,8 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
         );
       })}
       {attractions.map((attraction) => {
-        const isSingle = !isSectorMode && attraction.id === selectedId;
+        const activeIds = selectedIds ?? (selectedId ? [selectedId] : []);
+        const isSingle = !isSectorMode && activeIds.includes(attraction.id);
         const isInSector = isSectorMode && sectorIds.includes(attraction.id);
         const isOrange = isSingle || isInSector;
         const hasOrder = showOrder && !!attraction.attractionOrder;

@@ -29,6 +29,7 @@ interface Props {
   inline?: boolean;
   highlightedId?: string | null;
   initialMode?: 'current' | 'pin';
+  onRestaurantHighlight?: (contentid: string) => void;
 }
 
 const RADII = [
@@ -47,7 +48,7 @@ function formatDist(dist: string) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
 }
 
-export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inline = false, highlightedId = null, initialMode }: Props) {
+export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inline = false, highlightedId = null, initialMode, onRestaurantHighlight }: Props) {
   const l = lang as Lang;
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<'current' | 'pin'>(initialMode ?? 'current');
@@ -197,7 +198,15 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inl
               key={r.contentid}
               ref={(el) => { cardRefs.current[r.contentid] = el; }}
               className={`rounded-xl overflow-hidden flex text-left w-full active:bg-stone-100 transition-all ${isHighlighted ? 'bg-amber-50 ring-2 ring-amber-400' : 'bg-stone-50'}`}
-              onClick={() => setSelected(r)}
+              onClick={() => {
+                if (onRestaurantHighlight) {
+                  // 두 번 클릭 모드: 1st=핀 하이라이트, 2nd=상세
+                  if (isHighlighted) setSelected(r);
+                  else onRestaurantHighlight(r.contentid);
+                } else {
+                  setSelected(r);
+                }
+              }}
             >
               <div className="flex-1 min-w-0 px-3 py-2.5">
                 <p className="font-bold text-stone-800 text-sm truncate">{r.title}</p>
