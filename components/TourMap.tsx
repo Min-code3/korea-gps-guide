@@ -94,18 +94,14 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
         const isOrange = isSingle || isInSector;
         const scale = isSingle ? 13 : 11;
 
-        // showOrder 모드에서 pinpoints 데이터(routeOrder 있는 핀)가 있으면
+        // showOrder 모드에서 attraction sheet 기반 routePins가 있으면
         // 좌표별로 개별 번호 핀 렌더링 (리스트 카드는 명소 하나 그대로)
-        const orderedPins = showOrder
-          ? attraction.pins.filter((p) => !!p.routeOrder)
-          : [];
-
-        if (orderedPins.length > 0) {
+        if (showOrder && attraction.routePins && attraction.routePins.length > 0) {
           return (
             <React.Fragment key={attraction.id}>
-              {orderedPins.map((pin) => (
+              {attraction.routePins.map((pin) => (
                 <Marker
-                  key={pin.id}
+                  key={`${attraction.id}-rp-${pin.order}`}
                   position={{ lat: pin.lat, lng: pin.lng }}
                   icon={{
                     path: CIRCLE,
@@ -116,7 +112,7 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
                     strokeWeight: 2,
                   }}
                   label={{
-                    text: String(pin.routeOrder),
+                    text: String(pin.order),
                     color: '#ffffff',
                     fontSize: '11px',
                     fontWeight: 'bold',

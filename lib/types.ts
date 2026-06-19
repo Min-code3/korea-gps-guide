@@ -29,6 +29,7 @@ export interface Attraction {
   hours?: string;     // e.g. "9:00 ~ 22:00"
   center: { lat: number; lng: number };
   center2?: { lat: number; lng: number };
+  routePins?: { lat: number; lng: number; order: number }[]; // 지역 페이지 복수 좌표 핀
   defaultZoom: number;
   star?: string;
   tags?: string[];

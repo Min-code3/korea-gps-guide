@@ -216,7 +216,7 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
     getPinpointRows(),
   ]);
 
-  const rows = attractionRows
+  const allRows = attractionRows
     .filter((r) => r.area === area)
     .sort((a, b) => {
       const starDiff = (b.star ? 1 : 0) - (a.star ? 1 : 0);
@@ -224,13 +224,36 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
       return a.priority - b.priority;
     });
 
+  // 같은 id 행 그룹핑: 첫 번째 행 = 주 데이터, 나머지 행 = 추가 좌표 핀만 사용
+  // 시트에서 하나의 명소에 복수 좌표를 지정할 때 같은 id로 여러 행을 추가
+  const idSeen = new Set<string>();
+  const rows: typeof allRows = [];
+  const extraPinsMap: Record<string, { lat: number; lng: number; order: number }[]> = {};
+
+  for (const row of allRows) {
+    if (!idSeen.has(row.id)) {
+      idSeen.add(row.id);
+      rows.push(row); // 첫 번째 행 = 명소 카드 데이터
+      if (row.lat && row.lng && row.attractionOrder) {
+        extraPinsMap[row.id] = [{ lat: row.lat, lng: row.lng, order: row.attractionOrder }];
+      }
+    } else {
+      // 추가 행: lat/lng/routeOrder만 수집
+      if (row.lat && row.lng && row.attractionOrder) {
+        (extraPinsMap[row.id] ??= []).push({ lat: row.lat, lng: row.lng, order: row.attractionOrder });
+      }
+    }
+  }
+
   // apiData.hours/admission 추적 — EN 모드에서 출처 판별에 사용
   const buildResults = await Promise.all(
     rows.map(async (row) => {
       const sheetCenter = row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined;
       const { apiData, images } = await fetchAPIData(row, lang, true);
+      const attr = buildAttraction(row, pinpoints, apiData, images, sheetCenter);
+      const routePins = extraPinsMap[row.id];
       return {
-        attr: buildAttraction(row, pinpoints, apiData, images, sheetCenter),
+        attr: routePins && routePins.length > 1 ? { ...attr, routePins } : attr,
         apiHours: apiData.hours,
         apiAdm: apiData.admission,
       };
