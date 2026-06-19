@@ -92,6 +92,43 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
         const isSingle = !isSectorMode && activeIds.includes(attraction.id);
         const isInSector = isSectorMode && sectorIds.includes(attraction.id);
         const isOrange = isSingle || isInSector;
+        const scale = isSingle ? 13 : 11;
+
+        // showOrder 모드에서 pinpoints 데이터(routeOrder 있는 핀)가 있으면
+        // 좌표별로 개별 번호 핀 렌더링 (리스트 카드는 명소 하나 그대로)
+        const orderedPins = showOrder
+          ? attraction.pins.filter((p) => !!p.routeOrder)
+          : [];
+
+        if (orderedPins.length > 0) {
+          return (
+            <React.Fragment key={attraction.id}>
+              {orderedPins.map((pin) => (
+                <Marker
+                  key={pin.id}
+                  position={{ lat: pin.lat, lng: pin.lng }}
+                  icon={{
+                    path: CIRCLE,
+                    scale,
+                    fillColor: isOrange ? '#f97316' : '#1d4ed8',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2,
+                  }}
+                  label={{
+                    text: String(pin.routeOrder),
+                    color: '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                  }}
+                  onClick={() => onPinClick(attraction.id)}
+                />
+              ))}
+            </React.Fragment>
+          );
+        }
+
+        // 핀 없거나 showOrder 아닌 경우 — center(+center2) 마커
         const hasOrder = showOrder && !!attraction.attractionOrder;
         return (
           <React.Fragment key={attraction.id}>
@@ -99,7 +136,7 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
               position={attraction.center}
               icon={{
                 path: CIRCLE,
-                scale: isSingle ? 11 : hasOrder ? 11 : 8,
+                scale: isSingle ? 13 : hasOrder ? 11 : 8,
                 fillColor: isOrange ? '#f97316' : '#1d4ed8',
                 fillOpacity: 1,
                 strokeColor: '#ffffff',
@@ -118,7 +155,7 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
                 position={attraction.center2}
                 icon={{
                   path: CIRCLE,
-                  scale: isSingle ? 11 : 8,
+                  scale: isSingle ? 13 : 8,
                   fillColor: isOrange ? '#f97316' : '#1d4ed8',
                   fillOpacity: 1,
                   strokeColor: '#ffffff',
