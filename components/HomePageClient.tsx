@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AreaRow } from '@/lib/sheets';
 import ImageLightbox from '@/components/ImageLightbox';
 import HomeEventsPanel from '@/components/HomeEventsPanel';
@@ -14,9 +15,10 @@ interface Props {
   lang: string;
 }
 
-interface LightboxState { images: string[]; index: number; }
+interface LightboxState { images: string[]; index: number; area: string; }
 
 export default function HomePageClient({ areas, eventAreas, coverImages, lang }: Props) {
+  const router = useRouter();
   const [mode, setMode] = useState<'attractions' | 'events'>('attractions');
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [thumbIndices, setThumbIndices] = useState<Record<string, number>>({});
@@ -30,9 +32,9 @@ export default function HomePageClient({ areas, eventAreas, coverImages, lang }:
     setThumbIndices(indices);
   }, [areas, coverImages]);
 
-  const open = (images: string[], index: number, e: React.MouseEvent) => {
+  const open = (area: string, images: string[], index: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    setLightbox({ images, index });
+    setLightbox({ images, index, area });
   };
 
   const l = lang as Lang;
@@ -82,8 +84,8 @@ export default function HomePageClient({ areas, eventAreas, coverImages, lang }:
                   <div
                     role="button"
                     tabIndex={0}
-                    onClick={(e) => open(images, thumbIdx, e)}
-                    onKeyDown={(e) => e.key === 'Enter' && open(images, thumbIdx, e as never)}
+                    onClick={(e) => open(area.area, images, thumbIdx, e)}
+                    onKeyDown={(e) => e.key === 'Enter' && open(area.area, images, thumbIdx, e as never)}
                     className="shrink-0 cursor-pointer"
                     style={{ width: 80, height: 80, minWidth: 80 }}
                   >
@@ -106,6 +108,8 @@ export default function HomePageClient({ areas, eventAreas, coverImages, lang }:
           onClose={() => setLightbox(null)}
           onPrev={() => setLightbox((lb) => lb && { ...lb, index: (lb.index - 1 + lb.images.length) % lb.images.length })}
           onNext={() => setLightbox((lb) => lb && { ...lb, index: (lb.index + 1) % lb.images.length })}
+          onImageClick={() => router.push(`/area/${encodeURIComponent(lightbox.area)}?lang=${lang}`)}
+          imageClickLabel={lang === 'en' ? `Go to ${areas.find(a => a.area === lightbox.area)?.areaEn || lightbox.area}` : `${lightbox.area} 보러가기`}
         />
       )}
     </>

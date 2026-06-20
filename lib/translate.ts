@@ -12,7 +12,12 @@ export async function translateBatch(texts: (string | null | undefined)[], targe
   toTranslate.forEach(t => qs.append('q', t));
 
   const res = await fetch(`${ENDPOINT}?${qs}`, { next: { revalidate: 86400 } });
-  const data = await res.json();
+  let data: { data?: { translations?: { translatedText: string }[] } };
+  try {
+    data = await res.json();
+  } catch {
+    return filled; // 번역 API 오류 시 원문 반환
+  }
   const results: string[] = data.data?.translations?.map(
     (t: { translatedText: string }) => t.translatedText.replace(/\n{2,}/g, '\n').trim()
   ) ?? toTranslate;

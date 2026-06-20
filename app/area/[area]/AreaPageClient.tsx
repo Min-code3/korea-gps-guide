@@ -207,16 +207,17 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
   );
 
   // 좌표 공유 lookup: "lat,lng" → 해당 좌표를 가진 attraction ID 목록
-  // center 또는 center2가 동일한 명소들을 한 번에 하이라이트하기 위해 사용
+  // center, center2, routePins 모두 포함 — 같은 좌표 핀 클릭 시 여러 명소 동시 하이라이트
   const coordToIds = useMemo(() => {
     const map: Record<string, string[]> = {};
+    const add = (lat: number, lng: number, id: string) => {
+      const key = `${lat},${lng}`;
+      if (!(map[key] ??= []).includes(id)) map[key].push(id);
+    };
     for (const a of attractions) {
-      const key1 = `${a.center.lat},${a.center.lng}`;
-      (map[key1] ??= []).push(a.id);
-      if (a.center2) {
-        const key2 = `${a.center2.lat},${a.center2.lng}`;
-        (map[key2] ??= []).push(a.id);
-      }
+      add(a.center.lat, a.center.lng, a.id);
+      if (a.center2) add(a.center2.lat, a.center2.lng, a.id);
+      for (const p of a.routePins ?? []) add(p.lat, p.lng, a.id);
     }
     return map;
   }, [attractions]);
@@ -232,13 +233,14 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     }
   };
 
-  const handlePinClick = (attractionId: string) => {
+  const handlePinClick = (attractionId: string, pinLat?: number, pinLng?: number) => {
     const attr = attractions.find((a) => a.id === attractionId);
     if (attr?.sectors?.length) setActiveSector(attr.sectors[0]);
     setIsSectorMode(false);
-    // 클릭한 명소와 같은 좌표를 공유하는 명소들 모두 하이라이트
-    const key1 = `${attr?.center.lat},${attr?.center.lng}`;
-    const shared = coordToIds[key1] ?? [attractionId];
+    // 클릭한 핀의 실제 좌표로 공유 명소 조회 (routePins 포함)
+    const lat = pinLat ?? attr?.center.lat;
+    const lng = pinLng ?? attr?.center.lng;
+    const shared = (lat != null && lng != null) ? (coordToIds[`${lat},${lng}`] ?? [attractionId]) : [attractionId];
     setSelectedIds(shared.length > 1 ? shared : [attractionId]);
   };
 
@@ -294,7 +296,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
         <div className="h-[45vh] shrink-0">
           <TourMap
-            attractions={mode === 'highlights' ? highlightAttractions : attractions}
+            attractions={mode === 'highlights' ? (highlightSubTab === 'top' ? highlightAttractions : attractions) : attractions}
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
@@ -306,7 +308,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             selectedRestaurantId={selectedRestaurantId}
             onRestaurantPinClick={setSelectedRestaurantId}
             lang={lang}
-            showOrder={mode === 'attractions'}
+            showOrder={mode === 'attractions' || mode === 'highlights'}
           />
         </div>
 
@@ -476,7 +478,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             const images = (attraction.images ?? []).map(toHttps);
             const cached = attraction.contentId ? (galleryCache[attraction.contentId] ?? []) : [];
             const thumb = images[0] || cached[0];
-            const tagBadges = (attraction.tags ?? []).filter((tag) => tagMap[tag]);
+            const tagBadges = Object.keys(tagMap).filter((tag) => attraction.tags?.includes(tag));
             const desc = attraction.description ?? '';
             const shortDesc = desc.length > DESC_LIMIT ? desc.slice(0, DESC_LIMIT) : desc;
             const hasMore = desc.length > DESC_LIMIT;

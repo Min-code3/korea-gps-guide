@@ -22,14 +22,14 @@ export interface Attraction {
   contentId?: string; // kor_content_id — gallery lazy load에 사용
   name: string;
   sectors?: string[];
-  attractionOrder?: number;
+  attractionOrder?: string;
   description?: string;
   guideTitle?: string; // shown in audio guide player — falls back to name if not set
   admission?: string; // e.g. "Free" or "₩3,000"
   hours?: string;     // e.g. "9:00 ~ 22:00"
   center: { lat: number; lng: number };
   center2?: { lat: number; lng: number };
-  routePins?: { lat: number; lng: number; order: number }[]; // 지역 페이지 복수 좌표 핀
+  routePins?: { lat: number; lng: number; order: string }[]; // 지역 페이지 복수 좌표 핀
   defaultZoom: number;
   star?: string;
   tags?: string[];

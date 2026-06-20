@@ -76,7 +76,7 @@ export async function getEventOverrides(): Promise<EventOverrideRow[]> {
 }
 
 // ── Sheet: attraction ───────────────────────────────────────────────
-// id | area | name | sector | kor_content_id | eng_content_id | lat | lng | admission | defaultZoom | priority | star | tag_csv | hour | Comment | routeOrder | lat2 | lng2
+// id | area | name | sector | kor_content_id | eng_content_id | lat | lng | routeOrder | admission | hour | star | priority | tag_csv | Comment
 export interface AttractionRow {
   id: string;
   area: string;
@@ -87,15 +87,12 @@ export interface AttractionRow {
   lat: number;
   lng: number;
   admission: string;
-  defaultZoom: number;
   priority: number;
   star: string;
   tags: string[];
   sectors: string[];
   sheetHours: string;
-  attractionOrder?: number;
-  lat2?: number;
-  lng2?: number;
+  attractionOrder?: string;
 }
 
 export async function getAttractionRows(): Promise<AttractionRow[]> {
@@ -111,16 +108,13 @@ export async function getAttractionRows(): Promise<AttractionRow[]> {
       engContentId: r[5] ?? '',
       lat: parseFloat(r[6]) || 0,
       lng: parseFloat(r[7]) || 0,
-      admission: r[8] ?? '',
-      defaultZoom: parseInt(r[9]) || 16,
-      priority: parseInt(r[10]) || 0,
+      attractionOrder: r[8]?.trim() || undefined,
+      admission: r[9] ?? '',
+      sheetHours: r[10] ?? '',
       star: r[11] ?? '',
-      tags: r[12] ? r[12].split(',').map((t) => t.trim()).filter(Boolean) : [],
+      priority: parseInt(r[12]) || 0,
+      tags: r[13] ? r[13].split(',').map((t) => t.trim()).filter(Boolean) : [],
       sectors: r[3] ? r[3].split(',').map((s) => s.trim()).filter(Boolean) : [],
-      sheetHours: r[13] ?? '',
-      attractionOrder: r[15] ? parseInt(r[15]) || undefined : undefined,
-      lat2: r[16] ? parseFloat(r[16]) || undefined : undefined,
-      lng2: r[17] ? parseFloat(r[17]) || undefined : undefined,
     }));
 }
 

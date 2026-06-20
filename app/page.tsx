@@ -9,13 +9,12 @@ export default async function HomePage({
   searchParams: Promise<{ lang?: string }>;
 }) {
   const { lang = 'ko' } = await searchParams;
-  const [areas, coverImages] = await Promise.all([
+  const [allAreas, coverImages] = await Promise.all([
     getAreas(),
     getAreaCoverImages(),
   ]);
-  const eventAreas = areas
-    .filter((a) => a.showEvents)
-    .sort((a, b) => a.eventOrder - b.eventOrder);
+  const areas = [...allAreas].sort((a, b) => a.eventOrder - b.eventOrder);
+  const eventAreas = areas.filter((a) => a.showEvents);
 
   return (
     <main className="min-h-dvh bg-stone-50 px-5 pt-14 pb-10">

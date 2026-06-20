@@ -48,11 +48,11 @@ function buildAttraction(
     attractionOrder: row.attractionOrder,
     // DB 우선 — 직접 관리한 값이 정확도가 높음. 없을 때만 API 사용
     hours: row.sheetHours || apiData.hours,
-    center2: row.lat2 && row.lng2 ? { lat: row.lat2, lng: row.lng2 } : undefined,
+
     description: apiData.description,
     center,
     admission: row.admission || apiData.admission || undefined,
-    defaultZoom: row.defaultZoom,
+    defaultZoom: 16,
     star: row.star || undefined,
     tags: row.tags,
     images,
@@ -228,7 +228,7 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
   // 시트에서 하나의 명소에 복수 좌표를 지정할 때 같은 id로 여러 행을 추가
   const idSeen = new Set<string>();
   const rows: typeof allRows = [];
-  const extraPinsMap: Record<string, { lat: number; lng: number; order: number }[]> = {};
+  const extraPinsMap: Record<string, { lat: number; lng: number; order: string }[]> = {};
 
   for (const row of allRows) {
     if (!idSeen.has(row.id)) {

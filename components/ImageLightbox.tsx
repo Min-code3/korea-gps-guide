@@ -8,9 +8,11 @@ interface Props {
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onImageClick?: () => void;
+  imageClickLabel?: string;
 }
 
-export default function ImageLightbox({ images, index, onClose, onPrev, onNext }: Props) {
+export default function ImageLightbox({ images, index, onClose, onPrev, onNext, onImageClick, imageClickLabel }: Props) {
   const valid = images.filter(Boolean);
   const safeIndex = valid.length > 0 ? Math.min(index, valid.length - 1) : 0;
   const touchStartX = useRef<number>(0);
@@ -54,15 +56,27 @@ export default function ImageLightbox({ images, index, onClose, onPrev, onNext }
       )}
 
       {valid[safeIndex] && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={valid[safeIndex]}
-          alt=""
-          className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+        <div
+          className="relative"
           onClick={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={valid[safeIndex]}
+            alt=""
+            className={`max-h-[85vh] max-w-[90vw] object-contain rounded-lg ${onImageClick ? 'cursor-pointer' : ''}`}
+            onClick={onImageClick}
+          />
+          {onImageClick && imageClickLabel && (
+            <div
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full pointer-events-none"
+            >
+              {imageClickLabel}
+            </div>
+          )}
+        </div>
       )}
 
       {valid.length > 1 && (

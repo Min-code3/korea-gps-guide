@@ -13,7 +13,7 @@ interface TourMapProps {
   selectedIds?: string[]; // 좌표 공유 멀티 하이라이트
   sectorIds?: string[];
   isSectorMode?: boolean;
-  onPinClick: (attractionId: string) => void;
+  onPinClick: (attractionId: string, lat?: number, lng?: number) => void;
   restaurantPins?: RestaurantPin[];
   selectedRestaurantId?: string | null;
   onRestaurantPinClick?: (contentid: string) => void;
@@ -87,68 +87,82 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
           />
         );
       })}
-      {attractions.map((attraction) => {
+      {(() => {
         const activeIds = selectedIds ?? (selectedId ? [selectedId] : []);
-        const isSingle = !isSectorMode && activeIds.includes(attraction.id);
-        const isInSector = isSectorMode && sectorIds.includes(attraction.id);
-        const isOrange = isSingle || isInSector;
-        const scale = isSingle ? 13 : 11;
 
-        // showOrder 모드에서 attraction sheet 기반 routePins가 있으면
-        // 좌표별로 개별 번호 핀 렌더링 (리스트 카드는 명소 하나 그대로)
-        if (showOrder && attraction.routePins && attraction.routePins.length > 0) {
-          return (
-            <React.Fragment key={attraction.id}>
-              {attraction.routePins.map((pin) => (
+        // showOrder 모드: routePins를 좌표 기준으로 중복 제거 후 한 번만 렌더링
+        // (스카이캡슐·해상열차처럼 같은 좌표를 쓰는 명소가 핀을 공유)
+        if (showOrder) {
+          const pinMap: Record<string, { lat: number; lng: number; order: string; ids: string[] }> = {};
+          for (const a of attractions) {
+            for (const p of a.routePins ?? []) {
+              const key = `${p.lat},${p.lng}`;
+              if (!pinMap[key]) pinMap[key] = { lat: p.lat, lng: p.lng, order: p.order, ids: [] };
+              if (!pinMap[key].ids.includes(a.id)) pinMap[key].ids.push(a.id);
+            }
+          }
+
+          const routePinMarkers = Object.entries(pinMap).map(([key, pin]) => {
+            const isOrange = pin.ids.some(id =>
+              (!isSectorMode && activeIds.includes(id)) || (isSectorMode && sectorIds.includes(id))
+            );
+            const isSelected = pin.ids.some(id => activeIds.includes(id));
+            return (
+              <Marker
+                key={`rp-${key}`}
+                position={{ lat: pin.lat, lng: pin.lng }}
+                icon={{
+                  path: CIRCLE,
+                  scale: isSelected ? 13 : 11,
+                  fillColor: isOrange ? '#f97316' : '#1d4ed8',
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2,
+                }}
+                label={{ text: pin.order, color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}
+                onClick={() => onPinClick(pin.ids[0], pin.lat, pin.lng)}
+              />
+            );
+          });
+
+          // routePins 없는 일반 명소는 center 마커로 렌더링
+          const centerMarkers = attractions
+            .filter(a => !a.routePins || a.routePins.length === 0)
+            .map(a => {
+              const isSingle = !isSectorMode && activeIds.includes(a.id);
+              const isInSector = isSectorMode && sectorIds.includes(a.id);
+              const isOrange = isSingle || isInSector;
+              const hasOrder = !!a.attractionOrder;
+              return (
                 <Marker
-                  key={`${attraction.id}-rp-${pin.order}`}
-                  position={{ lat: pin.lat, lng: pin.lng }}
+                  key={a.id}
+                  position={a.center}
                   icon={{
                     path: CIRCLE,
-                    scale,
+                    scale: isSingle ? 13 : hasOrder ? 11 : 8,
                     fillColor: isOrange ? '#f97316' : '#1d4ed8',
                     fillOpacity: 1,
                     strokeColor: '#ffffff',
                     strokeWeight: 2,
                   }}
-                  label={{
-                    text: String(pin.order),
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                  }}
-                  onClick={() => onPinClick(attraction.id)}
+                  label={hasOrder ? { text: a.attractionOrder!, color: '#ffffff', fontSize: '11px', fontWeight: 'bold' } : undefined}
+                  onClick={() => onPinClick(a.id, a.center.lat, a.center.lng)}
                 />
-              ))}
-            </React.Fragment>
-          );
+              );
+            });
+
+          return [...routePinMarkers, ...centerMarkers];
         }
 
-        // 핀 없거나 showOrder 아닌 경우 — center(+center2) 마커
-        const hasOrder = showOrder && !!attraction.attractionOrder;
-        return (
-          <React.Fragment key={attraction.id}>
-            <Marker
-              position={attraction.center}
-              icon={{
-                path: CIRCLE,
-                scale: isSingle ? 13 : hasOrder ? 11 : 8,
-                fillColor: isOrange ? '#f97316' : '#1d4ed8',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2,
-              }}
-              label={hasOrder ? {
-                text: String(attraction.attractionOrder),
-                color: '#ffffff',
-                fontSize: '11px',
-                fontWeight: 'bold',
-              } : undefined}
-              onClick={() => onPinClick(attraction.id)}
-            />
-            {attraction.center2 && (
+        // showOrder 아닌 경우 — 기존 center(+center2) 마커
+        return attractions.map((attraction) => {
+          const isSingle = !isSectorMode && activeIds.includes(attraction.id);
+          const isInSector = isSectorMode && sectorIds.includes(attraction.id);
+          const isOrange = isSingle || isInSector;
+          return (
+            <React.Fragment key={attraction.id}>
               <Marker
-                position={attraction.center2}
+                position={attraction.center}
                 icon={{
                   path: CIRCLE,
                   scale: isSingle ? 13 : 8,
@@ -157,12 +171,26 @@ export default function TourMap({ attractions, center, defaultZoom, selectedId, 
                   strokeColor: '#ffffff',
                   strokeWeight: 2,
                 }}
-                onClick={() => onPinClick(attraction.id)}
+                onClick={() => onPinClick(attraction.id, attraction.center.lat, attraction.center.lng)}
               />
-            )}
-          </React.Fragment>
-        );
-      })}
+              {attraction.center2 && (
+                <Marker
+                  position={attraction.center2}
+                  icon={{
+                    path: CIRCLE,
+                    scale: isSingle ? 13 : 8,
+                    fillColor: isOrange ? '#f97316' : '#1d4ed8',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2,
+                  }}
+                  onClick={() => onPinClick(attraction.id, attraction.center2!.lat, attraction.center2!.lng)}
+                />
+              )}
+            </React.Fragment>
+          );
+        });
+      })()}
     </GoogleMap>
   );
 }
