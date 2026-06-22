@@ -8,15 +8,21 @@ export async function translateBatch(texts: (string | null | undefined)[], targe
   const toTranslate = filled.filter(Boolean);
   if (!toTranslate.length) return filled;
 
-  const qs = new URLSearchParams({ key: KEY, source, target, format: 'text' });
-  toTranslate.forEach(t => qs.append('q', t));
-
-  const res = await fetch(`${ENDPOINT}?${qs}`, { next: { revalidate: 86400 } });
-  let data: { data?: { translations?: { translatedText: string }[] } };
+  const res = await fetch(`${ENDPOINT}?key=${KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: toTranslate, source, target, format: 'text' }),
+    next: { revalidate: 86400 },
+  });
+  let data: { data?: { translations?: { translatedText: string }[] }; error?: { message: string } };
   try {
     data = await res.json();
   } catch {
-    return filled; // 번역 API 오류 시 원문 반환
+    return filled;
+  }
+  if (data.error) {
+    console.error('[translate] API error:', data.error.message);
+    return filled;
   }
   const results: string[] = data.data?.translations?.map(
     (t: { translatedText: string }) => t.translatedText.replace(/\n{2,}/g, '\n').trim()

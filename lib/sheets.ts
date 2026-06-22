@@ -30,7 +30,7 @@ async function getRows(sheetName: string): Promise<string[][]> {
 }
 
 // ── Sheet: area ─────────────────────────────────────────────────────
-// nation | nation_en | area | dec | area_en | event_order | show_events | scctor
+// nation | nation_en | area | dec | area_en | event_order | show_events | sector
 export interface AreaRow {
   nation: string;
   nationEn: string;
@@ -39,6 +39,7 @@ export interface AreaRow {
   areaEn: string;
   showEvents: boolean;
   eventOrder: number;
+  sectorLabel: string; // e.g. "Sector", "Trip Type"
 }
 
 export async function getAreaRows(): Promise<AreaRow[]> {
@@ -53,6 +54,7 @@ export async function getAreaRows(): Promise<AreaRow[]> {
       areaEn: r[4] ?? '',
       eventOrder: parseInt(r[5]) || 999,
       showEvents: r[6] === 'TRUE',
+      sectorLabel: r[7] ?? '',
     }));
 }
 
@@ -77,6 +79,7 @@ export async function getEventOverrides(): Promise<EventOverrideRow[]> {
 
 // ── Sheet: attraction ───────────────────────────────────────────────
 // id | area | name | sector | kor_content_id | eng_content_id | lat | lng | routeOrder | admission | hour | star | priority | tag_csv | Comment
+// admission 형식: "텍스트" 또는 "텍스트|https://..." (|로 URL 구분)
 export interface AttractionRow {
   id: string;
   area: string;
@@ -87,35 +90,49 @@ export interface AttractionRow {
   lat: number;
   lng: number;
   admission: string;
+  ticketUrl: string;
   priority: number;
   star: string;
   tags: string[];
   sectors: string[];
   sheetHours: string;
+  hoursUrl: string;
   attractionOrder?: string;
+  comment: string;
+}
+
+function parseAdmission(raw: string): { admission: string; ticketUrl: string } {
+  const idx = raw.indexOf('|');
+  if (idx === -1) return { admission: raw, ticketUrl: '' };
+  return { admission: raw.slice(0, idx).trim(), ticketUrl: raw.slice(idx + 1).trim() };
 }
 
 export async function getAttractionRows(): Promise<AttractionRow[]> {
   const rows = await getRows('attraction');
   return rows
     .filter((r) => r[0] && r[2])
-    .map((r) => ({
-      id: r[0],
-      area: r[1] ?? '',
-      name: r[2] ?? '',
-      sector: r[3] ?? '',
-      korContentId: r[4] ?? '',
-      engContentId: r[5] ?? '',
-      lat: parseFloat(r[6]) || 0,
-      lng: parseFloat(r[7]) || 0,
-      attractionOrder: r[8]?.trim() || undefined,
-      admission: r[9] ?? '',
-      sheetHours: r[10] ?? '',
-      star: r[11] ?? '',
-      priority: parseInt(r[12]) || 0,
-      tags: r[13] ? r[13].split(',').map((t) => t.trim()).filter(Boolean) : [],
-      sectors: r[3] ? r[3].split(',').map((s) => s.trim()).filter(Boolean) : [],
-    }));
+    .map((r) => {
+      const { admission, ticketUrl } = parseAdmission(r[9] ?? '');
+      return {
+        id: r[0],
+        area: r[1] ?? '',
+        name: r[2] ?? '',
+        sector: r[3] ?? '',
+        korContentId: r[4] ?? '',
+        engContentId: r[5] ?? '',
+        lat: parseFloat(r[6]) || 0,
+        lng: parseFloat(r[7]) || 0,
+        attractionOrder: r[8]?.trim() || undefined,
+        admission,
+        ticketUrl,
+        ...(() => { const raw = (r[10] ?? '').replace(/\\n/g, '\n'); const idx = raw.indexOf('|'); return idx === -1 ? { sheetHours: raw, hoursUrl: '' } : { sheetHours: raw.slice(0, idx).trim(), hoursUrl: raw.slice(idx + 1).trim() }; })(),
+        star: r[11] ?? '',
+        priority: parseInt(r[12]) || 0,
+        tags: r[13] ? r[13].split(',').map((t) => t.trim()).filter(Boolean) : [],
+        sectors: r[3] ? r[3].split(',').map((s) => s.trim()).filter(Boolean) : [],
+        comment: (r[14] ?? '').replace(/\\n/g, '\n'),
+      };
+    });
 }
 
 // ── Sheet: sector ────────────────────────────────────────────────────
@@ -144,15 +161,28 @@ export async function getSectorRows(): Promise<SectorRow[]> {
 
   // sectorKo가 "사과, 바나나"처럼 콤마로 묶인 경우 개별 탭으로 분리
   // 의도: 하나의 명소가 여러 섹터에 동시 노출되도록 시트에 입력한 경우
+  // dedup 시 sectorEn이 있는 행이 나중에 나와도 반영되도록 Map으로 관리
   const expanded: SectorRow[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, number>(); // key -> expanded 배열 인덱스
   for (const row of raw) {
     const koList = row.sectorKo.split(',').map((s) => s.trim()).filter(Boolean);
     const enList = row.sectorEn.split(',').map((s) => s.trim());
     koList.forEach((ko, idx) => {
-      if (seen.has(`${row.area}:${ko}`)) return;
-      seen.add(`${row.area}:${ko}`);
-      expanded.push({ ...row, sectorKo: ko, sectorEn: enList[idx] ?? '' });
+      const key = `${row.area}:${ko}`;
+      const en = enList[idx] ?? '';
+      if (seen.has(key)) {
+        const existingIdx = seen.get(key)!;
+        if (en && !expanded[existingIdx].sectorEn) {
+          expanded[existingIdx].sectorEn = en;
+        }
+        // 기존 priority가 0(미설정)이고 새 행에 명시적 priority가 있으면 업데이트
+        if (row.priority > 0 && expanded[existingIdx].priority === 0) {
+          expanded[existingIdx].priority = row.priority;
+        }
+        return;
+      }
+      seen.set(key, expanded.length);
+      expanded.push({ ...row, sectorKo: ko, sectorEn: en });
     });
   }
   return expanded;

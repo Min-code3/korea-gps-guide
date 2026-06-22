@@ -9,6 +9,7 @@ import { t, type Lang, type MessageKey } from '@/lib/i18n';
 import ImageLightbox from '@/components/ImageLightbox';
 import NearbyPanel from '@/components/NearbyPanel';
 import EventList from '@/components/EventList';
+import EventDetailSheet from '@/components/EventDetailSheet';
 
 const TourMap = dynamic(() => import('@/components/TourMap'), { ssr: false });
 
@@ -20,6 +21,7 @@ interface Props {
   tagMap: Record<string, string>;
   center: { lat: number; lng: number };
   localRestaurants: LocalRestaurant[];
+  sectorLabel: string;
 }
 
 interface LightboxState {
@@ -82,7 +84,7 @@ const EVENT_STATUS_BADGE: Record<string, { labelKey: MessageKey; cls: string }> 
   upcoming: { labelKey: 'event.badge.upcoming',  cls: 'bg-stone-100 text-stone-500' },
 };
 
-export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center, localRestaurants }: Props) {
+export default function AreaPageClient({ area, lang, attractions, sectors, tagMap, center, localRestaurants, sectorLabel }: Props) {
   const l = lang as Lang;
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -196,10 +198,15 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
   const [highlightSubTab, setHighlightSubTab] = useState<'top' | 'all'>('top');
 
+  const hasStars = highlightAttractions.length > 0;
+
   const sectorAttractions = useMemo(() => {
-    if (mode === 'highlights') return highlightSubTab === 'top' ? highlightAttractions : attractions;
+    if (mode === 'highlights') {
+      if (!hasStars) return attractions; // star 없는 지역 → 전체 표시
+      return highlightSubTab === 'top' ? highlightAttractions : attractions;
+    }
     return activeSector ? attractions.filter((a) => a.sectors?.includes(activeSector)) : attractions;
-  }, [attractions, highlightAttractions, activeSector, mode, highlightSubTab]);
+  }, [attractions, highlightAttractions, hasStars, activeSector, mode, highlightSubTab]);
 
   const sectorIds = useMemo(
     () => sectorAttractions.map((a) => a.id),
@@ -296,7 +303,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
         <div className="h-[45vh] shrink-0">
           <TourMap
-            attractions={mode === 'highlights' ? (highlightSubTab === 'top' ? highlightAttractions : attractions) : attractions}
+            attractions={mode === 'highlights' ? (!hasStars ? attractions : highlightSubTab === 'top' ? highlightAttractions : attractions) : attractions}
             center={center}
             defaultZoom={13}
             selectedId={selectedId}
@@ -314,9 +321,13 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
         {/* 하이라이트 / 섹터 / 식당 / 행사 모드 탭 */}
         <div className="px-5 pt-3 pb-1 shrink-0 flex gap-2 overflow-x-auto no-scrollbar">
-          {(['highlights', 'attractions', 'restaurants', 'events'] as const).map((m) => {
+          {(['highlights', 'attractions', 'restaurants', 'events'] as const).filter((m) => m !== 'attractions' || (sortedSectors.length > 0 && !!sectorLabel)).map((m) => {
             const labelKey: MessageKey = m === 'highlights' ? 'tab.highlights' : m === 'attractions' ? 'tab.sector' : m === 'restaurants' ? 'tab.restaurants' : 'tab.events';
-            const label = t(l, labelKey);
+            const label = (m === 'highlights' && !hasStars)
+              ? (lang === 'en' ? 'All' : '전체')
+              : m === 'attractions'
+                ? sectorLabel
+                : t(l, labelKey);
             return (
               <button
                 key={m}
@@ -479,9 +490,10 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             const cached = attraction.contentId ? (galleryCache[attraction.contentId] ?? []) : [];
             const thumb = images[0] || cached[0];
             const tagBadges = Object.keys(tagMap).filter((tag) => attraction.tags?.includes(tag));
-            const desc = attraction.description ?? '';
-            const shortDesc = desc.length > DESC_LIMIT ? desc.slice(0, DESC_LIMIT) : desc;
-            const hasMore = desc.length > DESC_LIMIT;
+            const useComment = !!attraction.comment;
+            const desc = useComment ? attraction.comment! : (attraction.description ?? '');
+            const shortDesc = useComment ? desc : (desc.length > DESC_LIMIT ? desc.slice(0, DESC_LIMIT) : desc);
+            const hasMore = !useComment && desc.length > DESC_LIMIT;
 
             return (
               <button
@@ -523,12 +535,40 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
                     {/* admission */}
                     {attraction.admission && (
-                      <p className="text-xs text-stone-400 mt-1 whitespace-pre-line">🎫 {attraction.admission}</p>
+                      <p className="text-xs text-stone-400 mt-1 whitespace-pre-line">
+                        {attraction.ticketUrl ? (
+                          <span
+                            role="link"
+                            tabIndex={0}
+                            className="underline decoration-dotted hover:text-amber-600 transition-colors cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); window.open(attraction.ticketUrl, '_blank', 'noopener,noreferrer'); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); window.open(attraction.ticketUrl, '_blank', 'noopener,noreferrer'); } }}
+                          >
+                            🎫 {attraction.admission}
+                          </span>
+                        ) : (
+                          <>🎫 {attraction.admission}</>
+                        )}
+                      </p>
                     )}
 
                     {/* hours */}
                     {attraction.hours && (
-                      <p className="text-xs text-stone-400 mt-0.5 whitespace-pre-line">⏰ {attraction.hours}</p>
+                      <p className="text-xs text-stone-400 mt-0.5 whitespace-pre-line">
+                        {attraction.hoursUrl ? (
+                          <span
+                            role="link"
+                            tabIndex={0}
+                            className="underline decoration-dotted hover:text-amber-600 transition-colors cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); window.open(attraction.hoursUrl, '_blank', 'noopener,noreferrer'); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); window.open(attraction.hoursUrl, '_blank', 'noopener,noreferrer'); } }}
+                          >
+                            ⏰ {attraction.hours}
+                          </span>
+                        ) : (
+                          <>⏰ {attraction.hours}</>
+                        )}
+                      </p>
                     )}
 
                   </div>
@@ -633,48 +673,11 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
 
       {/* sector 행사 세부 팝업 */}
       {selectedSectorEvent && (
-        <div
-          className="fixed inset-0 z-[90] bg-black/40 flex items-end justify-center"
-          onClick={() => setSelectedSectorEvent(null)}
-        >
-          <div
-            className="bg-white rounded-t-2xl w-full max-w-lg flex flex-col"
-            style={{ maxHeight: '80vh' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-stone-100 shrink-0">
-              <p className="font-bold text-stone-800 text-sm truncate max-w-[80%]">{selectedSectorEvent.title}</p>
-              <button onClick={() => setSelectedSectorEvent(null)} className="text-stone-400 text-2xl leading-none">×</button>
-            </div>
-            <div className="flex-1 overflow-y-auto pb-10">
-              {selectedSectorEvent.firstimage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={toHttps(selectedSectorEvent.firstimage)} alt={selectedSectorEvent.title}
-                  className="w-full object-contain bg-stone-100" style={{ maxHeight: 240 }} />
-              )}
-              <div className="px-5 pt-4 flex flex-col gap-0">
-                {(() => {
-                  const d = selectedSectorEvent.detail ?? {};
-                  const rows = [
-                    { label: t(l, 'event.field.period'),  value: `${formatEventDate(selectedSectorEvent.eventstartdate)} ~ ${formatEventDate(selectedSectorEvent.eventenddate)}` },
-                    d.eventplace      && { label: t(l, 'event.field.venue'),   value: d.eventplace },
-                    { label: t(l, 'event.field.address'), value: selectedSectorEvent.addr1 },
-                    d.playtime        && { label: t(l, 'event.field.hours'),   value: stripEventHtml(d.playtime) },
-                    d.usetimefestival && { label: t(l, 'event.field.fee'),     value: d.usetimefestival },
-                    d.tel             && { label: t(l, 'event.field.tel'),     value: d.tel },
-                    d.homepage        && { label: t(l, 'event.field.website'), value: d.homepage.replace(/<[^>]+>/g, '').trim() },
-                  ].filter(Boolean) as { label: string; value: string }[];
-                  return rows.map(row => (
-                    <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
-                      <p className="text-xs text-stone-400 w-16 shrink-0 pt-0.5">{row.label}</p>
-                      <p className="text-sm text-stone-700 flex-1 whitespace-pre-line">{row.value}</p>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          </div>
-        </div>
+        <EventDetailSheet
+          event={selectedSectorEvent}
+          lang={lang}
+          onClose={() => setSelectedSectorEvent(null)}
+        />
       )}
 
       {/* 로컬 식당 세부정보 팝업 */}

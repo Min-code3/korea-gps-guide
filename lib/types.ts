@@ -26,6 +26,9 @@ export interface Attraction {
   description?: string;
   guideTitle?: string; // shown in audio guide player — falls back to name if not set
   admission?: string; // e.g. "Free" or "₩3,000"
+  ticketUrl?: string;
+  hoursUrl?: string;
+  comment?: string;
   hours?: string;     // e.g. "9:00 ~ 22:00"
   center: { lat: number; lng: number };
   center2?: { lat: number; lng: number };

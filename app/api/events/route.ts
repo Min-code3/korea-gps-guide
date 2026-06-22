@@ -116,22 +116,28 @@ export async function GET(req: NextRequest) {
     let enrichedActive: object[];
     if (lang === 'en') {
       const titles     = allActive.map(e => e.title ?? '');
+      const addrs      = allActive.map(e => (e.addr1 as string) ?? '');
       const places     = details.map(d => d.eventplace ?? '');
       const playtimes  = details.map(d => d.playtime ?? '');
       const fees       = details.map(d => d.usetimefestival ?? '');
+      const homepages  = details.map(d => d.homepage ?? '');
 
-      const [tTitles, tPlaces, tPlaytimes, tFees] = await Promise.all([
+      const [tTitles, tAddrs, tPlaces, tPlaytimes, tFees, tHomepages] = await Promise.all([
         translateBatch(titles),
+        translateBatch(addrs),
         translateBatch(places),
         translateBatch(playtimes),
         translateBatch(fees),
+        translateBatch(homepages),
       ]);
 
       enrichedActive = allActive.map((e: EventRaw, i: number) => ({
         ...e,
         title: tTitles[i] || e.title,
+        addr1: tAddrs[i] || e.addr1,
         detail: {
           ...details[i],
+          homepage: tHomepages[i] || details[i].homepage,
           eventplace:      tPlaces[i]    || details[i].eventplace,
           playtime:        tPlaytimes[i] || details[i].playtime,
           usetimefestival: tFees[i]      || details[i].usetimefestival,

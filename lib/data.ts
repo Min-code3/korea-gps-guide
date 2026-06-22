@@ -47,11 +47,16 @@ function buildAttraction(
     sectors: row.sectors.length ? row.sectors : undefined,
     attractionOrder: row.attractionOrder,
     // DB 우선 — 직접 관리한 값이 정확도가 높음. 없을 때만 API 사용
-    hours: row.sheetHours || apiData.hours,
+    // "-" 입력 시 API 폴백 없이 빈값으로 표시
+    hours: row.sheetHours === '-' ? '' : (row.sheetHours || apiData.hours),
 
     description: apiData.description,
     center,
-    admission: row.admission || apiData.admission || undefined,
+    // "-" 입력 시 API 폴백 없이 빈값으로 표시
+    admission: row.admission === '-' ? undefined : (row.admission || apiData.admission || undefined),
+    ticketUrl: row.ticketUrl || undefined,
+    hoursUrl: row.hoursUrl || undefined,
+    comment: row.comment || undefined,
     defaultZoom: 16,
     star: row.star || undefined,
     tags: row.tags,
@@ -216,24 +221,16 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
     getPinpointRows(),
   ]);
 
-  const allRows = attractionRows
-    .filter((r) => r.area === area)
-    .sort((a, b) => {
-      const starDiff = (b.star ? 1 : 0) - (a.star ? 1 : 0);
-      if (starDiff !== 0) return starDiff;
-      return a.priority - b.priority;
-    });
-
-  // 같은 id 행 그룹핑: 첫 번째 행 = 주 데이터, 나머지 행 = 추가 좌표 핀만 사용
-  // 시트에서 하나의 명소에 복수 좌표를 지정할 때 같은 id로 여러 행을 추가
+  // 같은 id 행 그룹핑: 시트 원본 순서 기준으로 첫 번째 행 = 주 데이터
+  // 정렬은 dedup 후에 해야 extra 좌표 행(priority=0)이 주 데이터 행을 밀어내지 않음
   const idSeen = new Set<string>();
-  const rows: typeof allRows = [];
+  const rows: ReturnType<typeof getAttractionRows> extends Promise<infer T> ? T : never[] = [];
   const extraPinsMap: Record<string, { lat: number; lng: number; order: string }[]> = {};
 
-  for (const row of allRows) {
+  for (const row of attractionRows.filter((r) => r.area === area)) {
     if (!idSeen.has(row.id)) {
       idSeen.add(row.id);
-      rows.push(row); // 첫 번째 행 = 명소 카드 데이터
+      rows.push(row);
       if (row.lat && row.lng && row.attractionOrder) {
         extraPinsMap[row.id] = [{ lat: row.lat, lng: row.lng, order: row.attractionOrder }];
       }
@@ -244,6 +241,13 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
       }
     }
   }
+
+  // 주 데이터 행만 대상으로 정렬
+  rows.sort((a, b) => {
+    const starDiff = (b.star ? 1 : 0) - (a.star ? 1 : 0);
+    if (starDiff !== 0) return starDiff;
+    return a.priority - b.priority;
+  });
 
   // apiData.hours/admission 추적 — EN 모드에서 출처 판별에 사용
   const buildResults = await Promise.all(
@@ -284,7 +288,7 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
     }
     // Step 2: 한글 출처(DB/KOR API) 번역. ENG API 직접 반환값은 번역 제외.
     const needsHoursTranslation = rows.map((row, i) =>
-      !!result[i].hours && (!!row.sheetHours || !row.engContentId || !apiHoursArr[i])
+      !!result[i].hours && !row.hoursUrl && (!!row.sheetHours || !row.engContentId || !apiHoursArr[i])
     );
     if (needsHoursTranslation.some(Boolean)) {
       const hoursToTranslate = result.map((a, i) => (needsHoursTranslation[i] ? (a.hours ?? '') : ''));
@@ -302,13 +306,17 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
 
     const admTasks: AdmTask[] = result.map((a, i) => {
       const row = rows[i];
+      if (row.admission === '-') return { type: 'none' }; // 의도적 빈값 — API 폴백 없이 스킵
       if (!a.admission) {
         // DB/API 모두 없음 → engContentId 있으면 KOR API 시도
         if (row.engContentId && row.korContentId) return { type: 'fetch-translate', contentId: row.korContentId };
         return { type: 'none' };
       }
       // admission 있음 — 출처가 한글인지 판별
-      if (row.admission) return { type: 'translate', text: a.admission }; // DB → 한글
+      if (row.admission) {
+        if (row.ticketUrl) return { type: 'none' }; // 링크 텍스트는 사용자가 직접 입력 → 번역 스킵
+        return { type: 'translate', text: a.admission }; // DB → 한글
+      }
       if (!row.engContentId) return { type: 'translate', text: a.admission }; // KOR API → 한글
       return { type: 'none' }; // ENG API → 이미 영문
     });
@@ -330,19 +338,26 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
       }
     }
 
-    // ── Name / Description ────────────────────────────────────────
+    // ── Name / Description / Comment ─────────────────────────────
     // engContentId 없는 명소는 KOR API(한글) name·description 사용 → 번역 필요
     // engContentId 있는 명소는 ENG API에서 이미 영문으로 가져옴 → 번역 불필요
+    // comment는 항상 한글로 입력되므로 있으면 무조건 번역
     const needsTextTr = rows.map((row) => !row.engContentId && !!row.korContentId);
-    if (needsTextTr.some(Boolean)) {
+    const needsCommentTr = rows.map((row) => !!row.comment);
+    if (needsTextTr.some(Boolean) || needsCommentTr.some(Boolean)) {
       const names = result.map((a, i) => (needsTextTr[i] ? (a.name ?? '') : ''));
       const descs = result.map((a, i) => (needsTextTr[i] ? (a.description ?? '') : ''));
-      const [trNames, trDescs] = await Promise.all([translateBatch(names), translateBatch(descs)]);
-      result = result.map((a, i) =>
-        needsTextTr[i]
-          ? { ...a, name: trNames[i] || a.name, description: trDescs[i] || a.description }
-          : a
-      );
+      const comments = result.map((a, i) => (needsCommentTr[i] ? (a.comment ?? '') : ''));
+      const [trNames, trDescs, trComments] = await Promise.all([
+        translateBatch(names),
+        translateBatch(descs),
+        translateBatch(comments),
+      ]);
+      result = result.map((a, i) => ({
+        ...a,
+        ...(needsTextTr[i] && { name: trNames[i] || a.name, description: trDescs[i] || a.description }),
+        ...(needsCommentTr[i] && { comment: trComments[i] || a.comment }),
+      }));
     }
   }
 

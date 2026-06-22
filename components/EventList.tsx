@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { t, tp, type Lang, type MessageKey } from '@/lib/i18n';
+import EventDetailSheet from '@/components/EventDetailSheet';
 
 interface EventDetail {
   overview?: string | null;
@@ -209,51 +210,11 @@ export default function EventList({ area, lang }: Props) {
 
       {/* 세부 팝업 */}
       {selected && (
-        <div
-          className="fixed inset-0 z-[90] bg-black/40 flex items-end justify-center"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="bg-white rounded-t-2xl w-full max-w-lg flex flex-col"
-            style={{ maxHeight: '80vh' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-stone-100 shrink-0">
-              <p className="font-bold text-stone-800 text-sm truncate max-w-[80%]">{selected.title}</p>
-              <button onClick={() => setSelected(null)} className="text-stone-400 text-2xl leading-none">×</button>
-            </div>
-            <div className="flex-1 overflow-y-auto pb-10">
-              {selected.firstimage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={toHttps(selected.firstimage)} alt={selected.title}
-                  className="w-full object-contain bg-stone-100" style={{ maxHeight: 240 }} />
-              )}
-              <div className="px-5 pt-4 flex flex-col gap-0">
-                {(() => {
-                  const d = selected.detail ?? {};
-                  const rows = [
-                    { label: t(l, 'event.field.period'),  value: `${formatDate(selected.eventstartdate)} ~ ${formatDate(selected.eventenddate)}` },
-                    d.eventplace      && { label: t(l, 'event.field.venue'),   value: d.eventplace },
-                    { label: t(l, 'event.field.address'), value: selected.addr1 },
-                    d.playtime        && { label: t(l, 'event.field.hours'),   value: stripHtml(d.playtime) },
-                    d.usetimefestival && { label: t(l, 'event.field.fee'),     value: d.usetimefestival },
-                    d.tel             && { label: t(l, 'event.field.tel'),     value: d.tel },
-                    d.homepage        && { label: t(l, 'event.field.website'), value: d.homepage.replace(/<[^>]+>/g, '').trim() },
-                  ].filter(Boolean) as { label: string; value: string }[];
-                  return rows.map(row => (
-                    <div key={row.label} className="flex gap-3 items-start py-2.5 border-b border-stone-100 last:border-0">
-                      <p className="text-xs text-stone-400 w-16 shrink-0 pt-0.5">{row.label}</p>
-                      <p className="text-sm text-stone-700 flex-1 whitespace-pre-line">{row.value}</p>
-                    </div>
-                  ));
-                })()}
-                {selected.customNote && (
-                  <p className="text-xs text-amber-600 font-medium pt-3">{selected.customNote}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <EventDetailSheet
+          event={selected}
+          lang={lang}
+          onClose={() => setSelected(null)}
+        />
       )}
     </>
   );

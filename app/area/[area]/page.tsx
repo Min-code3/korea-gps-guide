@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getAttractionsByArea, getLocalRestaurantsByArea } from '@/lib/data';
-import { getTagRows, getSectorRows } from '@/lib/sheets';
+import { getTagRows, getSectorRows, getAreaRows } from '@/lib/sheets';
 import AreaPageClient from './AreaPageClient';
 import LangToggle from '@/components/LangToggle';
 
@@ -14,12 +14,14 @@ export default async function AreaPage({
   const [{ area }, { lang = 'ko' }] = await Promise.all([params, searchParams]);
   const decodedArea = decodeURIComponent(area);
 
-  const [attractions, tagRows, sectorRows, localRestaurants] = await Promise.all([
+  const [attractions, tagRows, sectorRows, localRestaurants, areaRows] = await Promise.all([
     getAttractionsByArea(decodedArea, lang as 'ko' | 'en'),
     getTagRows(),
     getSectorRows().catch(() => []),
     getLocalRestaurantsByArea(decodedArea, lang as 'ko' | 'en').catch(() => []),
+    getAreaRows().catch(() => []),
   ]);
+  const sectorLabel = areaRows.find((r) => r.area === decodedArea)?.sectorLabel ?? '';
   if (attractions.length === 0) return notFound();
 
   const tagMap = Object.fromEntries(tagRows.map((t) => [t.tag, t.label]));
@@ -48,6 +50,7 @@ export default async function AreaPage({
         tagMap={tagMap}
         center={center}
         localRestaurants={localRestaurants}
+        sectorLabel={sectorLabel}
       />
     </>
   );
