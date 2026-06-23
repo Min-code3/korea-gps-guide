@@ -51,6 +51,7 @@ interface SectorEventItem {
     eventplace?: string | null;
     usetimefestival?: string | null;
   };
+  customNote?: string | null;
 }
 
 function formatEventDate(yyyymmdd: string): string {
