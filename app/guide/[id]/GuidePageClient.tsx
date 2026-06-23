@@ -12,7 +12,7 @@ const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 const AudioEngine = dynamic(() => import('@/components/AudioEngine'), { ssr: false });
 const PlayerBar = dynamic(() => import('@/components/PlayerBar'), { ssr: false });
 
-export default function GuidePageClient({ attraction, lang = 'ko' }: { attraction: Attraction; lang?: Lang }) {
+export default function GuidePageClient({ attraction, lang = 'en' }: { attraction: Attraction; lang?: Lang }) {
   const router = useRouter();
   const { setAttraction, startGuide, userPosition, autoPlayEnabled, toggleAutoPlay } = useGuideStore();
   const [showPrompt, setShowPrompt] = useState(false);

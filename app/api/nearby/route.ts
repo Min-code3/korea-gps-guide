@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const mapY = searchParams.get('mapY');
   const radius = searchParams.get('radius') ?? '1000';
   const contentTypeId = searchParams.get('contentTypeId') ?? '39';
-  const lang = searchParams.get('lang') ?? 'ko';
+  const lang = searchParams.get('lang') ?? 'en';
 
   if (!mapX || !mapY) {
     return NextResponse.json({ error: 'mapX, mapY required' }, { status: 400 });

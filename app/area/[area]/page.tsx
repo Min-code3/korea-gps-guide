@@ -11,7 +11,7 @@ export default async function AreaPage({
   params: Promise<{ area: string }>;
   searchParams: Promise<{ lang?: string }>;
 }) {
-  const [{ area }, { lang = 'ko' }] = await Promise.all([params, searchParams]);
+  const [{ area }, { lang = 'en' }] = await Promise.all([params, searchParams]);
   const decodedArea = decodeURIComponent(area);
 
   const [attractions, tagRows, sectorRows, localRestaurants, areaRows] = await Promise.all([

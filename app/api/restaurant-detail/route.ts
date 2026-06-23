@@ -4,7 +4,7 @@ import { translateBatch } from '@/lib/translate';
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const contentId = searchParams.get('contentId');
-  const lang = searchParams.get('lang') ?? 'ko';
+  const lang = searchParams.get('lang') ?? 'en';
   if (!contentId) return NextResponse.json({ error: 'contentId required' }, { status: 400 });
 
   const KEY = process.env.TOUR_API_KEY!;

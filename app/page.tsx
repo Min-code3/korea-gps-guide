@@ -8,7 +8,7 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ lang?: string }>;
 }) {
-  const { lang = 'ko' } = await searchParams;
+  const { lang = 'en' } = await searchParams;
   const [allAreas, coverImages] = await Promise.all([
     getAreas(),
     getAreaCoverImages(),
