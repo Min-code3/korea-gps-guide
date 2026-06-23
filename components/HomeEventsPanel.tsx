@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { AreaRow } from '@/lib/sheets';
 import { t, type Lang } from '@/lib/i18n';
+import { trackEventDetailOpened } from '@/lib/analytics';
 
 interface EventDetail {
   overview?: string | null;
@@ -168,7 +169,7 @@ export default function HomeEventsPanel({ eventAreas, lang }: Props) {
             <button
               key={event.contentid}
               className="w-full text-left bg-white rounded-2xl shadow-sm overflow-hidden flex active:bg-stone-50"
-              onClick={() => setSelected(event)}
+              onClick={() => { setSelected(event); trackEventDetailOpened(selectedArea, event.title, 'home', lang); }}
             >
               {event.firstimage ? (
                 // eslint-disable-next-line @next/next/no-img-element

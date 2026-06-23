@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { RestaurantPin } from '@/lib/types';
+import { trackExternalLinkClick } from '@/lib/analytics';
 
 interface Restaurant {
   contentid: string;
@@ -259,7 +260,7 @@ export default function RestaurantList({ selectedPin, lang, onRestaurantsFound }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full py-2.5 text-center text-sm font-medium text-stone-600 border border-stone-200 rounded-xl bg-stone-50"
-                  onClick={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); trackExternalLinkClick('directions', { name: selected.title }); }}
                 >
                   {lang === 'en' ? 'View on Google Maps' : '구글맵에서 보기'}
                 </a>

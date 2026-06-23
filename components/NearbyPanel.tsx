@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RestaurantPin } from '@/lib/types';
 import { t, type Lang } from '@/lib/i18n';
+import { trackExternalLinkClick } from '@/lib/analytics';
 
 interface Restaurant {
   contentid: string;
@@ -260,6 +261,7 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inl
             <div className="px-5 pt-4">
               <a href={googleMapsUrl(selected)} target="_blank" rel="noopener noreferrer"
                 className="block w-full py-2.5 text-center text-sm font-medium text-stone-600 border border-stone-200 rounded-xl bg-stone-50 active:bg-stone-100"
+                onClick={() => trackExternalLinkClick('directions', { name: selected.title })}
               >
                 {t(l, 'restaurant.googleMaps')}
               </a>
@@ -321,7 +323,7 @@ export default function NearbyPanel({ selectedPin, lang, onRestaurantsFound, inl
               <div className="px-5 pt-4">
                 <a href={googleMapsUrl(selected)} target="_blank" rel="noopener noreferrer"
                   className="block w-full py-2.5 text-center text-sm font-medium text-stone-600 border border-stone-200 rounded-xl bg-stone-50 active:bg-stone-100"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); trackExternalLinkClick('directions', { name: selected.title }); }}
                 >
                   {t(l, 'restaurant.googleMaps')}
                 </a>

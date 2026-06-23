@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import { useGuideStore } from '@/lib/store';
 import { isWithinRadius, getDistanceMeters } from '@/lib/geofence';
 import { getAudio } from '@/lib/audioElement';
-import { track } from '@/lib/posthog';
 
 export default function AudioEngine() {
   const {
@@ -37,12 +36,6 @@ export default function AudioEngine() {
           .sort((a, b) => a.dist - b.dist)[0];
 
         if (!closest) return;
-
-        track('pin_triggered', {
-          pin_id: closest.pin.id,
-          attraction_name: a.name,
-          distance_m: Math.round(closest.dist),
-        });
 
         if (autoPlayEnabled && s === 'A_PLAYING' && !isPlaying) {
           // Paused + autoPlay ON → immediately jump to B-guide
@@ -90,9 +83,6 @@ export default function AudioEngine() {
     audio.currentTime = 0;
 
     audio.onplay = () => {
-      if (status === 'A_PLAYING' && aBlockIndex === 0) {
-        track('guide_started', { attraction_name: attraction?.name });
-      }
       setIsPlaying(true);
       // 500ms interval instead of RAF — prevents 60fps re-renders that block iOS taps
       rafRef.current = window.setInterval(() => {

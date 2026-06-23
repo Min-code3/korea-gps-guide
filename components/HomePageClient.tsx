@@ -7,6 +7,7 @@ import { AreaRow } from '@/lib/sheets';
 import ImageLightbox from '@/components/ImageLightbox';
 import HomeEventsPanel from '@/components/HomeEventsPanel';
 import { t, type Lang } from '@/lib/i18n';
+import { trackHomeView, trackAreaSelected, trackHomeEventTabOpen } from '@/lib/analytics';
 
 interface Props {
   areas: AreaRow[];
@@ -20,6 +21,8 @@ interface LightboxState { images: string[]; index: number; area: string; }
 export default function HomePageClient({ areas, eventAreas, coverImages, lang }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<'attractions' | 'events'>('attractions');
+
+  useEffect(() => { trackHomeView(lang); }, [lang]);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const [thumbIndices, setThumbIndices] = useState<Record<string, number>>({});
 
@@ -48,7 +51,7 @@ export default function HomePageClient({ areas, eventAreas, coverImages, lang }:
         {(['attractions', 'events'] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setMode(tab)}
+            onClick={() => { setMode(tab); if (tab === 'events') trackHomeEventTabOpen(lang); }}
             className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-colors ${
               mode === tab
                 ? 'bg-stone-800 text-white'
@@ -74,6 +77,7 @@ export default function HomePageClient({ areas, eventAreas, coverImages, lang }:
                 <Link
                   href={`/area/${encodeURIComponent(area.area)}?lang=${lang}`}
                   className="flex-1 min-w-0 px-5 py-5 active:bg-stone-50 transition-colors"
+                  onClick={() => trackAreaSelected(area.area, lang)}
                 >
                   <p className="text-xs text-amber-600 uppercase tracking-widest font-medium mb-1">{lang === 'en' ? (area.nationEn || area.nation) : area.nation}</p>
                   <p className="text-base font-bold text-stone-800">{lang === 'en' ? (area.areaEn || area.area) : area.area}</p>

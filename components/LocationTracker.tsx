@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { track } from '@/lib/posthog';
+import { markInField } from '@/lib/analytics';
 
 const INTERVAL_MS = 5 * 60 * 1000;
 
@@ -18,6 +19,7 @@ function getSessionId(): string {
 function ping(sessionId: string) {
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      markInField();
       track('location_ping', {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
+import { trackLanguageSwitched } from '@/lib/analytics';
 
 export type Lang = 'ko' | 'en';
 
@@ -13,6 +14,7 @@ export default function LangToggle({ lang = 'ko' }: Props) {
   const pathname = usePathname();
 
   const toggle = (next: Lang) => {
+    if (next !== lang) trackLanguageSwitched(lang, next);
     router.replace(`${pathname}?lang=${next}`);
   };
 

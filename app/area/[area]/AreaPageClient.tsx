@@ -10,6 +10,7 @@ import ImageLightbox from '@/components/ImageLightbox';
 import NearbyPanel from '@/components/NearbyPanel';
 import EventList from '@/components/EventList';
 import EventDetailSheet from '@/components/EventDetailSheet';
+import { trackTabSwitch, trackAttractionViewed, trackSectorSwitched, trackRestaurantTabOpen, trackEventDetailOpened, trackExternalLinkClick } from '@/lib/analytics';
 
 const TourMap = dynamic(() => import('@/components/TourMap'), { ssr: false });
 
@@ -236,6 +237,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
     if (hasGuide && !isSectorMode && selectedIds.includes(attractionId)) {
       router.push(`/guide/${attractionId}?lang=${lang}`);
     } else {
+      if (attr) trackAttractionViewed(area, attr.name, mode, hasGuide, lang);
       setIsSectorMode(false);
       setSelectedIds([attractionId]);
     }
@@ -332,7 +334,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
             return (
               <button
                 key={m}
-                onClick={() => setMode(m)}
+                onClick={() => { setMode(m); trackTabSwitch(area, m, lang); }}
                 className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${mode === m ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200'}`}
               >
                 {label}
@@ -377,6 +379,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                     key={s.id}
                     onClick={() => {
                     setActiveSector(s.sectorKo);
+                    trackSectorSwitched(area, s.sectorKo, lang);
                     setIsSectorMode(true);
                     const first = attractions.find((a) => a.sectors?.includes(s.sectorKo));
                     setSelectedIds(first ? [first.id] : []);
@@ -412,7 +415,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
               ] as const).map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => setRestaurantSubTab(key)}
+                  onClick={() => { setRestaurantSubTab(key); trackRestaurantTabOpen(area, key, lang); }}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                     restaurantSubTab === key
                       ? 'bg-amber-500 text-white'
@@ -547,8 +550,8 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                             role="link"
                             tabIndex={0}
                             className="underline decoration-dotted hover:text-amber-600 transition-colors cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); window.open(attraction.ticketUrl, '_blank', 'noopener,noreferrer'); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); window.open(attraction.ticketUrl, '_blank', 'noopener,noreferrer'); } }}
+                            onClick={(e) => { e.stopPropagation(); trackExternalLinkClick('ticket', { area, name: attraction.name }); window.open(attraction.ticketUrl, '_blank', 'noopener,noreferrer'); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); trackExternalLinkClick('ticket', { area, name: attraction.name }); window.open(attraction.ticketUrl, '_blank', 'noopener,noreferrer'); } }}
                           >
                             🎫 {attraction.admission}
                           </span>
@@ -566,8 +569,8 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                             role="link"
                             tabIndex={0}
                             className="underline decoration-dotted hover:text-amber-600 transition-colors cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); window.open(attraction.hoursUrl, '_blank', 'noopener,noreferrer'); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); window.open(attraction.hoursUrl, '_blank', 'noopener,noreferrer'); } }}
+                            onClick={(e) => { e.stopPropagation(); trackExternalLinkClick('hours', { area, name: attraction.name }); window.open(attraction.hoursUrl, '_blank', 'noopener,noreferrer'); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); trackExternalLinkClick('hours', { area, name: attraction.name }); window.open(attraction.hoursUrl, '_blank', 'noopener,noreferrer'); } }}
                           >
                             ⏰ {attraction.hours}
                           </span>
@@ -617,7 +620,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                   <button
                     key={event.contentid}
                     className="w-full text-left bg-white rounded-2xl shadow-sm px-4 py-3 flex items-start gap-3 active:bg-stone-50"
-                    onClick={() => setSelectedSectorEvent(event)}
+                    onClick={() => { setSelectedSectorEvent(event); trackEventDetailOpened(area, event.title, 'sector_tab', lang); }}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
@@ -740,6 +743,7 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                     href={`https://www.google.com/maps/search/?api=1&query=${selectedLocalRestaurant.center.lat},${selectedLocalRestaurant.center.lng}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackExternalLinkClick('directions', { area, name: selectedLocalRestaurant.name })}
                     className="block w-full py-2.5 text-center text-sm font-medium text-stone-600 border border-stone-200 rounded-xl bg-stone-50 active:bg-stone-100"
                   >
                     {t(l, 'restaurant.googleMaps')}

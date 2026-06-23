@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { t, tp, type Lang, type MessageKey } from '@/lib/i18n';
 import EventDetailSheet from '@/components/EventDetailSheet';
+import { trackEventDetailOpened } from '@/lib/analytics';
 
 interface EventDetail {
   overview?: string | null;
@@ -170,7 +171,7 @@ export default function EventList({ area, lang }: Props) {
             <button
               key={event.contentid}
               className="w-full text-left bg-white rounded-2xl shadow-sm px-4 py-3 flex items-start gap-3 active:bg-stone-50"
-              onClick={() => setSelected(event)}
+              onClick={() => { setSelected(event); trackEventDetailOpened(area, event.title, 'events_tab', lang); }}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
