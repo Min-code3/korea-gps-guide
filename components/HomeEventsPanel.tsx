@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AreaRow } from '@/lib/sheets';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -45,6 +45,7 @@ function stripHtml(html: string): string {
 export default function HomeEventsPanel({ eventAreas, lang }: Props) {
   const l = lang as Lang;
   const [selectedArea, setSelectedArea] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [cache, setCache] = useState<Record<string, Event[]>>({});
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef<Set<string>>(new Set());
@@ -79,9 +80,28 @@ export default function HomeEventsPanel({ eventAreas, lang }: Props) {
     return merged.sort((a, b) => (a.eventstartdate ?? '').localeCompare(b.eventstartdate ?? ''));
   })();
 
-  const displayed = selectedArea === 'all' ? allEvents : (cache[selectedArea] ?? []);
+  const areaFiltered = selectedArea === 'all' ? allEvents : (cache[selectedArea] ?? []);
 
-  const tabs = [
+  // 이벤트에 존재하는 월만 추출 (오름차순)
+  const activeMonths = useMemo(() => {
+    const set = new Set<string>();
+    areaFiltered.forEach((e) => {
+      if (e.eventstartdate && e.eventstartdate.length >= 6) set.add(e.eventstartdate.slice(4, 6));
+    });
+    return Array.from(set).sort();
+  }, [areaFiltered]);
+
+  const displayed = selectedMonth === 'all'
+    ? areaFiltered
+    : areaFiltered.filter((e) => e.eventstartdate?.slice(4, 6) === selectedMonth);
+
+  const monthLabel = (mm: string) => {
+    const m = parseInt(mm);
+    const EN_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return lang === 'en' ? EN_MONTHS[m - 1] : `${m}월`;
+  };
+
+  const areaTabs = [
     { key: 'all', label: t(l, 'tab.all') },
     ...eventAreas.map((a) => ({ key: a.area, label: lang === 'en' ? (a.areaEn || a.area) : a.area })),
   ];
@@ -89,11 +109,11 @@ export default function HomeEventsPanel({ eventAreas, lang }: Props) {
   return (
     <div>
       {/* area sub-tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
-        {tabs.map((tab) => (
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-2 no-scrollbar">
+        {areaTabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setSelectedArea(tab.key)}
+            onClick={() => { setSelectedArea(tab.key); setSelectedMonth('all'); }}
             className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
               selectedArea === tab.key
                 ? 'bg-amber-500 text-white'
@@ -104,6 +124,35 @@ export default function HomeEventsPanel({ eventAreas, lang }: Props) {
           </button>
         ))}
       </div>
+
+      {/* month sub-tabs — 이벤트가 있는 월만 표시 */}
+      {activeMonths.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
+          <button
+            onClick={() => setSelectedMonth('all')}
+            className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              selectedMonth === 'all'
+                ? 'bg-stone-800 text-white'
+                : 'bg-white text-stone-400 border border-stone-200'
+            }`}
+          >
+            {t(l, 'tab.all')}
+          </button>
+          {activeMonths.map((mm) => (
+            <button
+              key={mm}
+              onClick={() => setSelectedMonth(mm)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                selectedMonth === mm
+                  ? 'bg-stone-800 text-white'
+                  : 'bg-white text-stone-400 border border-stone-200'
+              }`}
+            >
+              {monthLabel(mm)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading && displayed.length === 0 ? (
         <div className="flex justify-center py-12 text-stone-400 text-sm">

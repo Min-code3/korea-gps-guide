@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getAttractionsByArea, getLocalRestaurantsByArea } from '@/lib/data';
-import { getTagRows, getSectorRows, getAreaRows } from '@/lib/sheets';
+import { getCachedAttractionsByArea, getCachedLocalRestaurantsByArea, getCachedTagRows, getCachedSectorRows, getCachedAreaRows } from '@/lib/cached-data';
 import AreaPageClient from './AreaPageClient';
 import LangToggle from '@/components/LangToggle';
 
@@ -15,11 +14,11 @@ export default async function AreaPage({
   const decodedArea = decodeURIComponent(area);
 
   const [attractions, tagRows, sectorRows, localRestaurants, areaRows] = await Promise.all([
-    getAttractionsByArea(decodedArea, lang as 'ko' | 'en'),
-    getTagRows(),
-    getSectorRows().catch(() => []),
-    getLocalRestaurantsByArea(decodedArea, lang as 'ko' | 'en').catch(() => []),
-    getAreaRows().catch(() => []),
+    getCachedAttractionsByArea(decodedArea, lang as 'ko' | 'en'),
+    getCachedTagRows(),
+    getCachedSectorRows().catch(() => []),
+    getCachedLocalRestaurantsByArea(decodedArea, lang as 'ko' | 'en').catch(() => []),
+    getCachedAreaRows().catch(() => []),
   ]);
   const sectorLabel = areaRows.find((r) => r.area === decodedArea)?.sectorLabel ?? '';
   if (attractions.length === 0) return notFound();

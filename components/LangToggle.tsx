@@ -24,13 +24,13 @@ export default function LangToggle({ lang = 'ko' }: Props) {
       />
       <button
         onClick={() => toggle('ko')}
-        className={`relative z-10 px-3 py-1.5 rounded-full transition-colors duration-200 ${lang === 'ko' ? 'text-stone-800' : 'text-stone-400'}`}
+        className={`relative z-10 px-3 py-1.5 rounded-full whitespace-nowrap transition-colors duration-200 ${lang === 'ko' ? 'text-stone-800' : 'text-stone-400'}`}
       >
         한국어
       </button>
       <button
         onClick={() => toggle('en')}
-        className={`relative z-10 px-3 py-1.5 rounded-full transition-colors duration-200 ${lang === 'en' ? 'text-stone-800' : 'text-stone-400'}`}
+        className={`relative z-10 px-3 py-1.5 rounded-full whitespace-nowrap transition-colors duration-200 ${lang === 'en' ? 'text-stone-800' : 'text-stone-400'}`}
       >
         English
       </button>

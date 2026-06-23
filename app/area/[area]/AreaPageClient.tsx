@@ -504,20 +504,25 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    {/* name + star + tag badges */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="text-base font-bold text-stone-800">{attraction.name}</p>
-                      {attraction.star && <span className="text-sm">{attraction.star}</span>}
-                      {tagBadges.map((tag) => (
-                        <span key={tag} className="text-xs px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 bg-amber-50">
-                          {tagMap[tag]}
-                        </span>
-                      ))}
-                    </div>
+                    {/* name + star */}
+                    <p className="text-base font-bold text-stone-800">
+                      {attraction.name}
+                      {attraction.star && <span className="text-sm font-normal ml-1">{attraction.star}</span>}
+                    </p>
+                    {/* tag badges */}
+                    {tagBadges.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        {tagBadges.map((tag) => (
+                          <span key={tag} className="text-xs px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 bg-amber-50">
+                            {tagMap[tag]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {/* description */}
                     {shortDesc && (
-                      <p className="text-sm text-stone-400 mt-0.5">
+                      <p className="text-sm text-stone-400 mt-0.5 whitespace-pre-line">
                         {shortDesc}
                         {hasMore && (
                           <span
@@ -627,6 +632,9 @@ export default function AreaPageClient({ area, lang, attractions, sectors, tagMa
                       <p className="font-bold text-stone-800 text-sm">{event.title}</p>
                       {event.detail?.playtime && (
                         <p className="text-xs text-stone-500 mt-0.5 truncate">{stripEventHtml(event.detail.playtime)}</p>
+                      )}
+                      {event.customNote && (
+                        <p className="text-xs text-amber-600 mt-1 font-medium">{event.customNote}</p>
                       )}
                     </div>
                     <div
