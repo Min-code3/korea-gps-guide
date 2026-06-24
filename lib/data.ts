@@ -7,6 +7,21 @@ function toHttps(url: string) {
   return url.replace(/^http:\/\//i, 'https://');
 }
 
+// TourAPI 동시 호출 수 제한 — 지역의 명소 수와 무관하게 항상 안전하게 동작
+// (캐시가 비어있는 상태에서 방문자가 와도, 한꺼번에 N개를 다 쏘지 않음)
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 type Lang = 'ko' | 'en';
 
 function buildAttraction(
@@ -117,8 +132,7 @@ export async function getAreas(): Promise<AreaRow[]> {
 export async function getLocalRestaurantsByArea(area: string, lang: Lang = 'ko'): Promise<LocalRestaurant[]> {
   const rows = (await getRestaurantRows()).filter((r) => r.area === area);
 
-  const results = await Promise.all(
-    rows.map(async (row): Promise<LocalRestaurant> => {
+  const results = await mapWithConcurrency(rows, 5, async (row): Promise<LocalRestaurant> => {
       // kor_content_id 있으면 API 우선, 없으면 시트 데이터만 사용
       // EN 모드면 name_en 컬럼 우선 사용
       const displayName = (lang === 'en' && row.nameEn) ? row.nameEn : (row.korContentId ? undefined : row.name);
@@ -158,8 +172,7 @@ export async function getLocalRestaurantsByArea(area: string, lang: Lang = 'ko')
         hours: row.hours || undefined,
         closed: row.closed || undefined,
       };
-    }),
-  );
+  });
 
   // EN 모드: 시트에서 온 한국어 텍스트 필드 일괄 번역
   // signature/menu/hours/closed는 시트에서 한국어로 관리됨
@@ -194,23 +207,22 @@ export async function getAreaCoverImages(): Promise<Record<string, string[]>> {
 
   const result: Record<string, string[]> = {};
 
-  await Promise.all(
-    Object.entries(grouped).map(async ([area, rows]) => {
-      const sorted = rows.sort((a, b) => a.priority - b.priority);
-      const images = await Promise.all(
-        sorted.map(async (row) => {
-          if (!row.korContentId) return '';
-          try {
-            const imgs = await getAttractionImages(row.korContentId);
-            return imgs[0] ? toHttps(imgs[0]) : '';
-          } catch {
-            return '';
-          }
-        }),
-      );
-      result[area] = images.filter(Boolean);
-    }),
+  const allRows = Object.entries(grouped).flatMap(([area, rows]) =>
+    rows.sort((a, b) => a.priority - b.priority).map((row) => ({ area, row }))
   );
+  const images = await mapWithConcurrency(allRows, 5, async ({ row }) => {
+    if (!row.korContentId) return '';
+    try {
+      const imgs = await getAttractionImages(row.korContentId);
+      return imgs[0] ? toHttps(imgs[0]) : '';
+    } catch {
+      return '';
+    }
+  });
+  allRows.forEach(({ area }, i) => {
+    if (!images[i]) return;
+    (result[area] ??= []).push(images[i]);
+  });
 
   return result;
 }
@@ -250,19 +262,17 @@ export async function getAttractionsByArea(area: string, lang: Lang = 'ko'): Pro
   });
 
   // apiData.hours/admission 추적 — EN 모드에서 출처 판별에 사용
-  const buildResults = await Promise.all(
-    rows.map(async (row) => {
-      const sheetCenter = row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined;
-      const { apiData, images } = await fetchAPIData(row, lang, true);
-      const attr = buildAttraction(row, pinpoints, apiData, images, sheetCenter);
-      const routePins = extraPinsMap[row.id];
-      return {
-        attr: routePins && routePins.length > 1 ? { ...attr, routePins } : attr,
-        apiHours: apiData.hours,
-        apiAdm: apiData.admission,
-      };
-    }),
-  );
+  const buildResults = await mapWithConcurrency(rows, 5, async (row) => {
+    const sheetCenter = row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined;
+    const { apiData, images } = await fetchAPIData(row, lang, true);
+    const attr = buildAttraction(row, pinpoints, apiData, images, sheetCenter);
+    const routePins = extraPinsMap[row.id];
+    return {
+      attr: routePins && routePins.length > 1 ? { ...attr, routePins } : attr,
+      apiHours: apiData.hours,
+      apiAdm: apiData.admission,
+    };
+  });
   const apiHoursArr = buildResults.map((r) => r.apiHours);
   let result = buildResults.map((r) => r.attr);
 

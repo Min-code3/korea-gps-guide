@@ -1,4 +1,5 @@
-import { getAreas, getAreaCoverImages } from '@/lib/data';
+import { getAreas } from '@/lib/data';
+import { getCachedAreaCoverImages } from '@/lib/cached-data';
 import { t } from '@/lib/i18n';
 import LangToggle from '@/components/LangToggle';
 import HomePageClient from '@/components/HomePageClient';
@@ -11,7 +12,7 @@ export default async function HomePage({
   const { lang = 'en' } = await searchParams;
   const [allAreas, coverImages] = await Promise.all([
     getAreas(),
-    getAreaCoverImages(),
+    getCachedAreaCoverImages(),
   ]);
   const areas = [...allAreas].sort((a, b) => a.eventOrder - b.eventOrder);
   const eventAreas = areas.filter((a) => a.showEvents);

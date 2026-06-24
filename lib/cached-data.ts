@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import { getAttractionsByArea, getLocalRestaurantsByArea } from './data';
+import { getAttractionsByArea, getLocalRestaurantsByArea, getAreaCoverImages } from './data';
 import { getTagRows, getSectorRows, getAreaRows } from './sheets';
 
 const redis = Redis.fromEnv();
@@ -34,6 +34,10 @@ export async function getCachedSectorRows() {
 
 export async function getCachedAreaRows() {
   return cached('area-rows', () => getAreaRows());
+}
+
+export async function getCachedAreaCoverImages() {
+  return cached('area-cover-images', () => getAreaCoverImages());
 }
 
 /** 시트 수정 후 캐시 전체 삭제 (다음 호출 시 새로 채워짐) */

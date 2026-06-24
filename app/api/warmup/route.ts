@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAreaRows } from '@/lib/sheets';
-import { getCachedAttractionsByArea, getCachedLocalRestaurantsByArea, getCachedTagRows, getCachedSectorRows, getCachedAreaRows } from '@/lib/cached-data';
+import { getCachedAttractionsByArea, getCachedLocalRestaurantsByArea, getCachedTagRows, getCachedSectorRows, getCachedAreaRows, getCachedAreaCoverImages } from '@/lib/cached-data';
 
 export async function POST(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token');
@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
   const areas = await getAreaRows();
   const langs: ('ko' | 'en')[] = ['ko', 'en'];
 
-  // 공통 캐시 먼저
-  await Promise.all([getCachedTagRows(), getCachedSectorRows(), getCachedAreaRows()]);
+  // 공통 캐시 먼저 (커버 이미지는 내부에서 이미 동시 호출 제한 처리됨)
+  await Promise.all([getCachedTagRows(), getCachedSectorRows(), getCachedAreaRows(), getCachedAreaCoverImages()]);
 
   // 지역×언어 순차 워밍업 — 한꺼번에 병렬로 쏘면 TourAPI rate limit에 걸려
   // 일부 명소가 실패하고, 그 실패가 그대로 캐싱되는 문제가 있었음.
