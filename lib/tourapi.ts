@@ -1,3 +1,5 @@
+import { limitTourAPIRequest, recordTourAPIFailure } from './tourapi-requests';
+
 const HTML_ENTITIES: Record<string, string> = {
   '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
   '&quot;': '"', '&apos;': "'", '&rsquo;': '’', '&lsquo;': '‘',
@@ -50,19 +52,29 @@ export interface TourAPIAttraction {
 
 async function fetchJSON(base: string, endpoint: string, params: Record<string, string>) {
   const qs = new URLSearchParams({ serviceKey: KEY, MobileOS: 'ETC', MobileApp: 'KoreaGpsGuide', _type: 'json', ...params });
-  const res = await fetch(`${base}/${endpoint}?${qs}`, { next: { revalidate: 3600 } });
-  const text = await res.text();
-  let data: ReturnType<typeof JSON.parse>;
   try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`TourAPI error (${endpoint}): ${text.slice(0, 200)}`);
+    return await limitTourAPIRequest(async () => {
+      // HTTP 200으로 오는 API 오류도 Next.js fetch 캐시에 남기지 않는다.
+      // 검증된 최종 데이터만 cached-data의 Redis 캐시에 저장한다.
+      const res = await fetch(`${base}/${endpoint}?${qs}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`TourAPI ${endpoint} HTTP ${res.status}`);
+      const text = await res.text();
+      let data: ReturnType<typeof JSON.parse>;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`TourAPI error (${endpoint}): ${text.slice(0, 200)}`);
+      }
+      const code = data?.response?.header?.resultCode;
+      if (code !== '0000' || !data?.response?.body) {
+        throw new Error(`TourAPI ${endpoint} resultCode ${code}: ${data?.response?.header?.resultMsg}`);
+      }
+      return data;
+    });
+  } catch (error) {
+    recordTourAPIFailure();
+    throw error;
   }
-  const code = data?.response?.header?.resultCode;
-  if (code && code !== '0000') {
-    throw new Error(`TourAPI ${endpoint} resultCode ${code}: ${data?.response?.header?.resultMsg}`);
-  }
-  return data;
 }
 
 function pickKorAdmission(items: TourAPIInfo[]): string {
@@ -176,6 +188,7 @@ export async function fetchHoursOnly(contentId: string, lang: 'ko' | 'en'): Prom
     const i: TourAPIIntro = intro.response?.body?.items?.item?.[0] ?? {};
     return stripHtml(i.usetime ?? '');
   } catch {
+    recordTourAPIFailure();
     return '';
   }
 }
@@ -188,6 +201,7 @@ export async function fetchAdmissionOnly(contentId: string, lang: 'ko' | 'en'): 
     const items: TourAPIInfo[] = [].concat(info.response?.body?.items?.item ?? []);
     return lang === 'ko' ? pickKorAdmission(items) : pickEngAdmission(items);
   } catch {
+    recordTourAPIFailure();
     return '';
   }
 }
