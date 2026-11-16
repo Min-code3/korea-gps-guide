@@ -2,6 +2,7 @@ import { Attraction, LocalRestaurant } from '@/lib/types';
 import { getAreaRows, getAttractionRows, getPinpointRows, getRestaurantRows, AreaRow } from '@/lib/sheets';
 import { getAttractionBasicFromAPI, getAttractionFromAPI, getAttractionFromEngAPI, getAttractionImages, fetchAdmissionOnly, fetchHoursOnly, getRestaurantBasicFromAPI } from '@/lib/tourapi';
 import { translateBatch } from '@/lib/translate';
+import { recordTourAPIFailure } from '@/lib/tourapi-requests';
 
 function toHttps(url: string) {
   return url.replace(/^http:\/\//i, 'https://');
@@ -99,6 +100,7 @@ async function fetchAPIData(
       const apiData = await getKorAPI(row.korContentId);
       return { apiData, images: apiData.image ? [toHttps(apiData.image)] : [] };
     } catch (e) {
+      recordTourAPIFailure();
       console.error(`[TourAPI] ${row.name} (${row.korContentId}) ko:`, e);
       return { apiData: fallback, images: [] };
     }
@@ -111,6 +113,7 @@ async function fetchAPIData(
       const apiData = await getKorAPI(row.korContentId);
       return { apiData, images: apiData.image ? [toHttps(apiData.image)] : [] };
     } catch (e) {
+      recordTourAPIFailure();
       console.error(`[TourAPI] ${row.name} (${row.korContentId}) ko-fallback:`, e);
       return { apiData: fallback, images: [] };
     }
@@ -120,6 +123,7 @@ async function fetchAPIData(
     const engData = await getAttractionFromEngAPI(row.engContentId);
     return { apiData: engData, images: engData.image ? [toHttps(engData.image)] : [] };
   } catch (e) {
+    recordTourAPIFailure();
     console.error(`[TourAPI] ${row.name} (${row.engContentId}) en:`, e);
     return { apiData: fallback, images: [] };
   }
@@ -156,6 +160,7 @@ export async function getLocalRestaurantsByArea(area: string, lang: Lang = 'ko')
             closed: row.closed || undefined,
           };
         } catch {
+          recordTourAPIFailure();
           // API 실패 시 시트 데이터 fallback
         }
       }
@@ -216,6 +221,7 @@ export async function getAreaCoverImages(): Promise<Record<string, string[]>> {
       const imgs = await getAttractionImages(row.korContentId);
       return imgs[0] ? toHttps(imgs[0]) : '';
     } catch {
+      recordTourAPIFailure();
       return '';
     }
   });
